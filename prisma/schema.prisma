@@ -119,6 +119,7 @@ model Task {
   reporterId  String
   dueDate     DateTime?
   sprintId    String?
+  sheetCode   String?   @unique
   order       Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -129,6 +130,18 @@ model Task {
   sprint    Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   labels    TaskLabel[]
   comments  Comment[]
+}
+
+model SyncLog {
+  id          String   @id @default(cuid())
+  startedAt   DateTime
+  finishedAt  DateTime?
+  rowsRead    Int      @default(0)
+  rowsCreated Int      @default(0)
+  rowsUpdated Int      @default(0)
+  rowsSkipped Int      @default(0)
+  rowsFailed  Int      @default(0)
+  error       String?
 }
 
 model Label {
