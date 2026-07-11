@@ -3,45 +3,71 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
+import { requireAdmin } from "@/lib/authorization";
 import { readSheet } from "@/lib/google-sheets";
 import { mapRow } from "@/lib/googleSheetMapper";
+
+export type SyncMatchLogEntry = {
+  ownerName: string;
+  matched: boolean;
+  matchedUserName: string | null;
+  taskCount: number;
+};
 
 export type SyncResult = {
   success: boolean;
   rowsRead: number;
   rowsCreated: number;
   rowsUpdated: number;
+  rowsReassigned: number;
   rowsSkipped: number;
   rowsFailed: number;
   duration: string;
   error?: string;
+  unmappedOwners: string[];
+  matchLog: SyncMatchLogEntry[];
 };
 
 const SYNC_WORKSPACE_NAME = "Google Sync";
 
 const DEFAULT_COLUMNS = ["To Do", "In Progress", "Review", "Done"];
 
-export async function syncGoogleSheet(): Promise<SyncResult> {
+function parseSheetDate(value: string): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
   const startedAt = new Date();
   let rowsRead = 0;
   let rowsCreated = 0;
   let rowsUpdated = 0;
+  let rowsReassigned = 0;
   let rowsSkipped = 0;
   let rowsFailed = 0;
 
   try {
-    const session = await requireAuth();
+    const session = userId ? null : await requireAdmin();
+    const defaultReporterId = userId ?? session!.user.id;
 
     const data = await readSheet();
 
     rowsRead = data.rows.length;
 
-    const workspace = await findOrCreateWorkspace(session.user.id);
+    const workspace = await findOrCreateWorkspace(defaultReporterId);
 
     const projectCache = new Map<string, string>();
     const columnCache = new Map<string, string>();
     const labelCache = new Map<string, string>();
     const userCache = new Map<string, string | null>();
+    const unmappedOwners = new Set<string>();
+    const ownerMatchCounts = new Map<string, {
+      matched: boolean;
+      matchedUserId: string | null;
+      matchedUserName: string | null;
+      count: number;
+    }>();
 
     for (const raw of data.rows) {
       try {
@@ -75,30 +101,79 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
         const assigneeId = await lookupUser(mapped.assigneeName, userCache);
         const reporterId = await lookupUser(mapped.reporterName, userCache);
 
+        if (!assigneeId && mapped.assigneeName) {
+          unmappedOwners.add(mapped.assigneeName);
+        }
+
+        if (mapped.assigneeName) {
+          const existing = ownerMatchCounts.get(mapped.assigneeName);
+          if (existing) {
+            existing.count++;
+          } else {
+            ownerMatchCounts.set(mapped.assigneeName, {
+              matched: !!assigneeId,
+              matchedUserId: assigneeId,
+              matchedUserName: assigneeId ? mapped.assigneeName : null,
+              count: 1,
+            });
+          }
+        }
+
         const existing = await prisma.task.findUnique({
           where: { sheetCode: mapped.sheetCode },
           include: { labels: true },
         });
 
+        const taskData = {
+          title: mapped.title,
+          description: mapped.description || null,
+          assigneeId: assigneeId ?? null,
+          reporterId: reporterId ?? defaultReporterId,
+          originalOwner: mapped.assigneeName || null,
+          category: mapped.category || null,
+          githubLink: mapped.githubLink || null,
+          productionUrl: mapped.productionUrl || null,
+          dateOfDevAcceptOrStart: parseSheetDate(mapped.dateOfDevAcceptOrStart),
+          dateOfDevComplete: parseSheetDate(mapped.dateOfDevComplete),
+          dateOfQaOrUatStart: parseSheetDate(mapped.dateOfQaOrUatStart),
+          dateOfQaOrUatComplete: parseSheetDate(mapped.dateOfQaOrUatComplete),
+          dateOfReleaseToProd: parseSheetDate(mapped.dateOfReleaseToProd),
+        };
+
         if (existing) {
           const changed: Record<string, unknown> = {};
           if (existing.title !== mapped.title) changed.title = mapped.title;
-          if (
-            (existing.description ?? "") !== mapped.description
-          )
+          if ((existing.description ?? "") !== mapped.description)
             changed.description = mapped.description || null;
           if (existing.columnId !== columnId) changed.columnId = columnId;
-          if (existing.assigneeId !== (assigneeId ?? null))
+          if (existing.assigneeId !== (assigneeId ?? null)) {
             changed.assigneeId = assigneeId ?? null;
-          if (existing.reporterId !== (reporterId ?? session.user.id))
-            changed.reporterId = reporterId ?? session.user.id;
+          }
+          if (existing.reporterId !== (reporterId ?? defaultReporterId))
+            changed.reporterId = reporterId ?? defaultReporterId;
+          if ((existing.category ?? "") !== (taskData.category ?? ""))
+            changed.category = taskData.category;
+          if ((existing.githubLink ?? "") !== (taskData.githubLink ?? ""))
+            changed.githubLink = taskData.githubLink;
+          if ((existing.productionUrl ?? "") !== (taskData.productionUrl ?? ""))
+            changed.productionUrl = taskData.productionUrl;
 
+          for (const dateField of ["dateOfDevAcceptOrStart", "dateOfDevComplete", "dateOfQaOrUatStart", "dateOfQaOrUatComplete", "dateOfReleaseToProd"] as const) {
+            const existingVal = existing[dateField]?.getTime() ?? null;
+            const newVal = taskData[dateField]?.getTime() ?? null;
+            if (existingVal !== newVal) {
+              (changed as Record<string, unknown>)[dateField] = taskData[dateField];
+            }
+          }
+
+          const wasReassigned = "assigneeId" in changed;
           if (Object.keys(changed).length > 0) {
             await prisma.task.update({
               where: { id: existing.id },
-              data: changed,
+              data: { ...changed, originalOwner: mapped.assigneeName || null },
             });
             rowsUpdated++;
+            if (wasReassigned) rowsReassigned++;
           } else {
             rowsSkipped++;
           }
@@ -122,10 +197,7 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
           await prisma.task.create({
             data: {
               columnId,
-              title: mapped.title,
-              description: mapped.description || null,
-              assigneeId: assigneeId ?? null,
-              reporterId: reporterId ?? session.user.id,
+              ...taskData,
               sheetCode: mapped.sheetCode,
               order: (maxOrder._max.order ?? -1) + 1,
               labels: labelId
@@ -143,6 +215,15 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
     const finishedAt = new Date();
     const durationMs = finishedAt.getTime() - startedAt.getTime();
 
+    const matchLog: SyncMatchLogEntry[] = Array.from(ownerMatchCounts.entries())
+      .map(([ownerName, info]) => ({
+        ownerName,
+        matched: info.matched,
+        matchedUserName: info.matchedUserName,
+        taskCount: info.count,
+      }))
+      .sort((a, b) => b.taskCount - a.taskCount);
+
     await prisma.syncLog.create({
       data: {
         startedAt,
@@ -150,6 +231,7 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
         rowsRead,
         rowsCreated,
         rowsUpdated,
+        rowsReassigned,
         rowsSkipped,
         rowsFailed,
       },
@@ -161,9 +243,12 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
       rowsRead,
       rowsCreated,
       rowsUpdated,
+      rowsReassigned,
       rowsSkipped,
       rowsFailed,
       duration: formatDuration(durationMs),
+      unmappedOwners: Array.from(unmappedOwners).sort(),
+      matchLog,
     };
   } catch (error) {
     const finishedAt = new Date();
@@ -178,6 +263,7 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
         rowsRead,
         rowsCreated,
         rowsUpdated,
+        rowsReassigned,
         rowsSkipped,
         rowsFailed,
         error: message,
@@ -190,10 +276,13 @@ export async function syncGoogleSheet(): Promise<SyncResult> {
       rowsRead,
       rowsCreated,
       rowsUpdated,
+      rowsReassigned,
       rowsSkipped,
       rowsFailed,
       duration: formatDuration(durationMs),
       error: message,
+      unmappedOwners: [],
+      matchLog: [],
     };
   }
 }
@@ -336,14 +425,21 @@ async function lookupUser(
   cache: Map<string, string | null>
 ): Promise<string | null> {
   if (!name) return null;
-  const cached = cache.get(name);
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const cached = cache.get(trimmed);
   if (cached !== undefined) return cached;
 
   const user = await prisma.user.findFirst({
-    where: { name },
+    where: {
+      OR: [
+        { email: trimmed },
+        { name: trimmed },
+      ],
+    },
   });
 
-  cache.set(name, user?.id ?? null);
+  cache.set(trimmed, user?.id ?? null);
   return user?.id ?? null;
 }
 

@@ -43,3 +43,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sqlite database
+*.db
+*.db-journal
+
+# logs
+dev-server.log
+
+# old postgresql migrations (switched to sqlite)
+/prisma/migrations/

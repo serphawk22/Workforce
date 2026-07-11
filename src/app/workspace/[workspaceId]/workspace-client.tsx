@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { inviteMember, removeMember } from "@/actions/workspace";
+import { inviteMember, removeMember, resendInvitation, cancelInvitation } from "@/actions/workspace";
 import { deleteProject } from "@/actions/project";
 import { CreateProjectModal } from "@/components/create-project-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Project = { id: string; name: string; description: string | null; createdAt: string };
 type Member = { id: string; name: string; email: string; avatarUrl: string | null; role: string };
-type Invite = { email: string; createdAt: string };
+type Invite = { id: string; email: string; status: string; createdAt: string; expiresAt: string };
 
 export function WorkspaceClient({
   workspaceId,
@@ -30,10 +31,13 @@ export function WorkspaceClient({
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviteError(null);
+    setInviteSuccess(false);
     const formData = new FormData();
     formData.set("email", inviteEmail);
     formData.set("workspaceId", workspaceId);
@@ -41,8 +45,14 @@ export function WorkspaceClient({
     if (result?.error) {
       setInviteError(Object.values(result.error).flat()[0] as string);
     } else {
-      setInviteEmail("");
-      setShowInvite(false);
+      const r = result as Record<string, unknown>;
+      if (r?.warning) {
+        setInviteError(r.warning as string);
+      } else {
+        setInviteEmail("");
+        setShowInvite(false);
+      }
+      setInviteSuccess(true);
       router.refresh();
     }
   }
@@ -55,13 +65,30 @@ export function WorkspaceClient({
     router.refresh();
   }
 
+  async function handleResend(inviteId: string) {
+    const formData = new FormData();
+    formData.set("inviteId", inviteId);
+    await resendInvitation(formData);
+    router.refresh();
+  }
+
+  async function handleCancel(inviteId: string) {
+    const formData = new FormData();
+    formData.set("inviteId", inviteId);
+    await cancelInvitation(formData);
+    router.refresh();
+  }
+
   async function handleDeleteProject(projectId: string) {
-    if (!confirm("Delete this project? This cannot be undone.")) return;
     const formData = new FormData();
     formData.set("projectId", projectId);
     await deleteProject(formData);
+    setDeleteProjectId(null);
     router.refresh();
   }
+
+  const expiredInvites = invites.filter((i) => new Date(i.expiresAt) < new Date());
+  const activeInvites = invites.filter((i) => new Date(i.expiresAt) >= new Date());
 
   return (
     <>
@@ -101,6 +128,7 @@ export function WorkspaceClient({
                 />
               </div>
               {inviteError && <p className="text-sm text-red-500">{inviteError}</p>}
+              {inviteSuccess && <p className="text-sm text-emerald-600">Invitation sent!</p>}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => { setShowInvite(false); setInviteError(null); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   Cancel
@@ -131,7 +159,7 @@ export function WorkspaceClient({
                   </a>
                   {canManage && (
                     <button
-                      onClick={() => handleDeleteProject(p.id)}
+                      onClick={() => setDeleteProjectId(p.id)}
                       className="ml-4 shrink-0 text-sm font-medium text-gray-400 transition-colors hover:text-red-500"
                     >
                       Delete
@@ -176,11 +204,59 @@ export function WorkspaceClient({
           {invites.length > 0 && (
             <div className="mt-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Pending Invites</h3>
-              <div className="space-y-1">
-                {invites.map((i, idx) => (
-                  <p key={idx} className="text-sm text-gray-500">
-                    {i.email}
-                  </p>
+              <div className="space-y-2">
+                {activeInvites.map((i) => (
+                  <div key={i.id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">{i.email}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          Pending
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Expires {new Date(i.expiresAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          onClick={() => handleResend(i.id)}
+                          className="text-xs font-medium text-gray-500 transition-colors hover:text-blue-600"
+                        >
+                          Resend
+                        </button>
+                        <button
+                          onClick={() => handleCancel(i.id)}
+                          className="text-xs font-medium text-gray-400 transition-colors hover:text-red-500"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {expiredInvites.map((i) => (
+                  <div key={i.id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3 opacity-60">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">{i.email}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          Expired
+                        </span>
+                      </div>
+                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          onClick={() => handleResend(i.id)}
+                          className="text-xs font-medium text-gray-500 transition-colors hover:text-blue-600"
+                        >
+                          Resend
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -192,6 +268,16 @@ export function WorkspaceClient({
         workspaceId={workspaceId}
         open={showCreateProject}
         onClose={() => setShowCreateProject(false)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteProjectId}
+        onClose={() => setDeleteProjectId(null)}
+        onConfirm={() => deleteProjectId && handleDeleteProject(deleteProjectId)}
+        title="Delete Project"
+        message="Delete this project? This cannot be undone. All boards, columns, and tasks will be permanently removed."
+        confirmLabel="Delete"
+        danger
       />
     </>
   );

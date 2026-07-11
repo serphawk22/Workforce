@@ -91,9 +91,10 @@ export async function updateTask(formData: FormData) {
 
   const existing = await prisma.task.findUnique({
     where: { id },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: { column: { include: { board: { include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } } } } },
   });
   if (!existing) return { error: { _form: ["Task not found"] } };
+  if (existing.column.board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
 
   const data: Record<string, unknown> = {};
   if (title !== undefined) data.title = title;
@@ -123,9 +124,10 @@ export async function moveTask(formData: FormData) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: { column: { include: { board: { include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } } } } },
   });
   if (!task) return { error: { _form: ["Task not found"] } };
+  if (task.column.board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
 
   await prisma.$transaction(async (tx) => {
     const columnTasks = await tx.task.findMany({
@@ -164,9 +166,10 @@ export async function deleteTask(formData: FormData) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: { column: { include: { board: { include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } } } } },
   });
   if (!task) return { error: { _form: ["Task not found"] } };
+  if (task.column.board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
 
   await prisma.task.delete({ where: { id: taskId } });
   revalidatePath(`/project/${task.column.board.projectId}`);

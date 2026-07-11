@@ -103,3 +103,17 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url().optional().or(z.literal("")),
 });
+
+export const updateProfileSettingsSchema = z.object({
+  displayName: z.string().max(100).optional(),
+  password: z.string().min(6).max(100).optional(),
+  avatarUrl: z.string().url().optional().or(z.literal("")),
+  themePreference: z.enum(["light", "dark"]).optional(),
+  notificationPreferences: z.string().optional(),
+});
+
+export const createEmployeeSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  role: z.enum(["EMPLOYEE", "ADMIN"]).default("EMPLOYEE"),
+});

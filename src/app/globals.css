@@ -27,7 +27,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     --background: #030712;
     --foreground: #f3f4f6;
     --muted: #111827;
@@ -38,6 +38,18 @@
     --accent: #1f2937;
     --accent-foreground: #f3f4f6;
   }
+}
+
+html.dark {
+  --background: #030712;
+  --foreground: #f3f4f6;
+  --muted: #111827;
+  --muted-foreground: #9ca3af;
+  --border: #1f2937;
+  --card: #111827;
+  --card-foreground: #f3f4f6;
+  --accent: #1f2937;
+  --accent-foreground: #f3f4f6;
 }
 
 * {
@@ -71,12 +83,21 @@ a:focus-visible,
 }
 
 @media (prefers-color-scheme: dark) {
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible,
-  button:focus-visible,
-  a:focus-visible,
-  [tabindex]:focus-visible {
+  html:not(.light) input:focus-visible,
+  html:not(.light) select:focus-visible,
+  html:not(.light) textarea:focus-visible,
+  html:not(.light) button:focus-visible,
+  html:not(.light) a:focus-visible,
+  html:not(.light) [tabindex]:focus-visible {
     outline-color: #60a5fa;
   }
+}
+
+html.dark input:focus-visible,
+html.dark select:focus-visible,
+html.dark textarea:focus-visible,
+html.dark button:focus-visible,
+html.dark a:focus-visible,
+html.dark [tabindex]:focus-visible {
+  outline-color: #60a5fa;
 }

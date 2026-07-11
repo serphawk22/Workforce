@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { ProfileForm } from "./profile-form";
 
 export default async function ProfilePage() {
-  const session = await requireAuth();
+  const session = await requireSetup();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },
@@ -12,7 +12,15 @@ export default async function ProfilePage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, avatarUrl: true },
+    select: {
+      name: true,
+      email: true,
+      displayName: true,
+      avatarUrl: true,
+      role: true,
+      themePreference: true,
+      notificationPreferences: true,
+    },
   });
 
   if (!user) return <div>User not found</div>;

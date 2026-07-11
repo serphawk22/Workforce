@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { WorkspaceClient } from "./workspace-client";
 
 export default async function WorkspacePage(props: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await props.params;
-  const session = await requireAuth();
+  const session = await requireSetup();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },
@@ -59,10 +59,15 @@ export default async function WorkspacePage(props: { params: Promise<{ workspace
             avatarUrl: m.user.avatarUrl,
             role: m.role,
           }))}
-          invites={workspace.invites.map((i) => ({
-            email: i.email,
-            createdAt: i.createdAt.toISOString(),
-          }))}
+          invites={workspace.invites
+            .filter((i) => i.status !== "CANCELLED" && i.status !== "ACCEPTED")
+            .map((i) => ({
+              id: i.id,
+              email: i.email,
+              status: i.status,
+              createdAt: i.createdAt.toISOString(),
+              expiresAt: i.expiresAt.toISOString(),
+            }))}
           canManage={!!canManage}
           isOwner={currentMember?.role === "OWNER"}
         />

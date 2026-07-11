@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAdmin } from "@/lib/authorization";
 import { GoogleSyncClient } from "./client";
 
 export const dynamic = "force-dynamic";
 
 export default async function GoogleSyncPage() {
-  await requireAuth();
+  await requireAdmin();
 
   const [latestSync, syncLogs] = await Promise.all([
     prisma.syncLog.findFirst({ orderBy: { startedAt: "desc" } }),
@@ -16,7 +16,7 @@ export default async function GoogleSyncPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
+    <main className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
           Google Sheets Sync
@@ -35,6 +35,7 @@ export default async function GoogleSyncPage() {
                 rowsRead: latestSync.rowsRead,
                 rowsCreated: latestSync.rowsCreated,
                 rowsUpdated: latestSync.rowsUpdated,
+                rowsReassigned: latestSync.rowsReassigned,
                 rowsSkipped: latestSync.rowsSkipped,
                 rowsFailed: latestSync.rowsFailed,
                 error: latestSync.error ?? null,
@@ -48,11 +49,12 @@ export default async function GoogleSyncPage() {
           rowsRead: l.rowsRead,
           rowsCreated: l.rowsCreated,
           rowsUpdated: l.rowsUpdated,
+          rowsReassigned: l.rowsReassigned,
           rowsSkipped: l.rowsSkipped,
           rowsFailed: l.rowsFailed,
           error: l.error ?? null,
         }))}
       />
-    </div>
+    </main>
   );
 }

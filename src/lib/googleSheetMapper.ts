@@ -52,6 +52,13 @@ export interface MappedRow {
   assigneeName: string;
   reporterName: string;
   competitor: string;
+  githubLink: string;
+  productionUrl: string;
+  dateOfDevAcceptOrStart: string;
+  dateOfDevComplete: string;
+  dateOfQaOrUatStart: string;
+  dateOfQaOrUatComplete: string;
+  dateOfReleaseToProd: string;
 }
 
 function trim(value: string): string {
@@ -82,6 +89,13 @@ export function mapRow(raw: Record<string, string>): MappedRow | null {
     assigneeName: trim(raw["current owner"]),
     reporterName: trim(raw["requested by"]),
     competitor: trim(raw["competitor "]),
+    githubLink: trim(raw["github link"]),
+    productionUrl: trim(raw["Production URL"]),
+    dateOfDevAcceptOrStart: trim(raw["date of dev accept or start"]),
+    dateOfDevComplete: trim(raw["date of dev complete"]),
+    dateOfQaOrUatStart: trim(raw["date of qa or uat start"]),
+    dateOfQaOrUatComplete: trim(raw["date of qa or uat complete"]),
+    dateOfReleaseToProd: trim(raw["date of release to prod"]),
   };
 }
 
@@ -92,12 +106,6 @@ function normalizeState(raw: string): string {
 
 function buildDescription(raw: Record<string, string>): string {
   const parts: string[] = [];
-
-  const github = trim(raw["github link"]);
-  if (github) parts.push(`GitHub: ${github}`);
-
-  const prodUrl = trim(raw["Production URL"]);
-  if (prodUrl) parts.push(`Production URL: ${prodUrl}`);
 
   const competitor = trim(raw["competitor "]);
   if (competitor) parts.push(`Competitor: ${competitor}`);

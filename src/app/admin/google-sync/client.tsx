@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { syncGoogleSheet, type SyncResult } from "@/actions/sync";
+import { syncGoogleSheet, type SyncResult, type SyncMatchLogEntry } from "@/actions/sync";
 
 type SyncLogEntry = {
   id: string;
@@ -10,6 +10,7 @@ type SyncLogEntry = {
   rowsRead: number;
   rowsCreated: number;
   rowsUpdated: number;
+  rowsReassigned: number;
   rowsSkipped: number;
   rowsFailed: number;
   error: string | null;
@@ -22,6 +23,7 @@ type Props = {
     rowsRead: number;
     rowsCreated: number;
     rowsUpdated: number;
+    rowsReassigned: number;
     rowsSkipped: number;
     rowsFailed: number;
     error: string | null;
@@ -124,24 +126,49 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
         </button>
 
         {lastResult && (
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <StatBox label="Read" value={lastResult.rowsRead} />
-            <StatBox
-              label="Created"
-              value={lastResult.rowsCreated}
-              color="text-emerald-600"
-            />
-            <StatBox
-              label="Updated"
-              value={lastResult.rowsUpdated}
-              color="text-blue-600"
-            />
-            <StatBox
-              label="Failed"
-              value={lastResult.rowsFailed}
-              color={lastResult.rowsFailed > 0 ? "text-red-600" : undefined}
-            />
-            <StatBox label="Duration" value={lastResult.duration} />
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-6">
+              <StatBox label="Read" value={lastResult.rowsRead} />
+              <StatBox label="Created" value={lastResult.rowsCreated} color="text-emerald-600" />
+              <StatBox label="Updated" value={lastResult.rowsUpdated} color="text-blue-600" />
+              <StatBox label="Reassigned" value={lastResult.rowsReassigned} color={lastResult.rowsReassigned > 0 ? "text-amber-600" : undefined} />
+              <StatBox label="Failed" value={lastResult.rowsFailed} color={lastResult.rowsFailed > 0 ? "text-red-600" : undefined} />
+              <StatBox label="Duration" value={lastResult.duration} />
+            </div>
+
+            {lastResult.matchLog.length > 0 && (
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <p className="mb-3 text-sm font-semibold text-gray-900">
+                  Owner Match Summary ({lastResult.matchLog.length} unique owners)
+                </p>
+                <div className="space-y-2">
+                  {lastResult.matchLog.map((entry) => (
+                    <MatchRowItem key={entry.ownerName} entry={entry} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {lastResult.unmappedOwners.length > 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+                <p className="text-sm font-medium text-orange-800">
+                  Unmapped Users ({lastResult.unmappedOwners.length})
+                </p>
+                <p className="mt-1 text-xs text-orange-700">
+                  These sheet owners don&apos;t have a matching user in the system. Tasks remain unassigned.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {lastResult.unmappedOwners.map((owner) => (
+                    <span
+                      key={owner}
+                      className="inline-flex items-center rounded-md bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700"
+                    >
+                      {owner}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -152,7 +179,7 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
               {new Date(latestSync.startedAt).toLocaleString()} —
               <span className="font-medium text-gray-700">
                 {latestSync.rowsCreated} created, {latestSync.rowsUpdated}{" "}
-                updated
+                updated, {latestSync.rowsReassigned} reassigned
               </span>
             </p>
           </div>
@@ -176,6 +203,7 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
                   <th className="pb-2 pr-4">Read</th>
                   <th className="pb-2 pr-4">Created</th>
                   <th className="pb-2 pr-4">Updated</th>
+                  <th className="pb-2 pr-4">Reassigned</th>
                   <th className="pb-2 pr-4">Skipped</th>
                   <th className="pb-2 pr-4">Failed</th>
                   <th className="pb-2 pr-4">Duration</th>
@@ -198,6 +226,9 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
                     <td className="py-2 pr-4 text-blue-600">
                       {log.rowsUpdated}
                     </td>
+                    <td className="py-2 pr-4 text-amber-600">
+                      {log.rowsReassigned}
+                    </td>
                     <td className="py-2 pr-4">{log.rowsSkipped}</td>
                     <td
                       className={`py-2 pr-4 ${
@@ -212,7 +243,7 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
                             new Date(log.finishedAt).getTime() -
                               new Date(log.startedAt).getTime()
                           )
-                        : "—"}
+                        : "\u2014"}
                     </td>
                     <td className="py-2 pr-4">
                       {log.error ? (
@@ -398,6 +429,48 @@ export function GoogleSyncClient({ latestSync, syncLogs }: Props) {
         )}
       </div>
     </>
+  );
+}
+
+function MatchRowItem({ entry }: { entry: SyncMatchLogEntry }) {
+  if (entry.matched) {
+    return (
+      <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-xs text-emerald-700">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3 w-3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span className="font-medium text-gray-900">{entry.ownerName}</span>
+          <span className="text-gray-400">&rarr;</span>
+          <span className="text-emerald-700 font-medium">{entry.matchedUserName}</span>
+        </div>
+        <span className="text-xs text-gray-500">
+          Assigned {entry.taskCount} task{entry.taskCount !== 1 ? "s" : ""}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between rounded-lg bg-white px-3 py-2 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3 w-3">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </span>
+        <span className="font-medium text-gray-900">{entry.ownerName}</span>
+        <span className="rounded-md bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-700">
+          User not found
+        </span>
+      </div>
+      <span className="text-xs text-gray-500">
+        {entry.taskCount} task{entry.taskCount !== 1 ? "s" : ""}
+      </span>
+    </div>
   );
 }
 

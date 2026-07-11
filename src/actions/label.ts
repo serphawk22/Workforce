@@ -55,10 +55,16 @@ export async function removeTaskLabel(formData: FormData) {
   const labelId = formData.get("labelId") as string;
   if (!taskId || !labelId) return { error: { _form: ["Required fields missing"] } };
 
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { column: { include: { board: { include: { project: true } } } } },
+  });
+  if (!task) return { error: { _form: ["Task not found"] } };
+
   await prisma.taskLabel.deleteMany({
     where: { taskId, labelId },
   });
 
-  revalidatePath(`/project/${taskId}`);
+  revalidatePath(`/project/${task.column.board.projectId}`);
   return { success: true };
 }

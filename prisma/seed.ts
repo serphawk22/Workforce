@@ -24,6 +24,7 @@ async function main() {
       name: "Demo User",
       email: "demo@taskflow.dev",
       passwordHash,
+      role: "ADMIN",
     },
   });
 
@@ -32,6 +33,7 @@ async function main() {
       name: "Jane Smith",
       email: "jane@taskflow.dev",
       passwordHash,
+      role: "EMPLOYEE",
     },
   });
 

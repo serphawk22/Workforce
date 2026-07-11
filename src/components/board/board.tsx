@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -14,6 +14,7 @@ import { Column as ColumnComponent } from "./column";
 import { addColumn } from "@/actions/column";
 import { moveTask } from "@/actions/task";
 import { TaskDetailModal } from "../task/task-detail-modal";
+import { PromptDialog } from "@/components/ui/prompt-dialog";
 
 type TaskData = {
   id: string;
@@ -59,6 +60,9 @@ export function Board({
   const [columns, setColumns] = useState(initialColumns);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskData | null>(null);
+  const [showColumnPrompt, setShowColumnPrompt] = useState(false);
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -81,11 +85,13 @@ export function Board({
     setActiveTaskId(event.active.id as string);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveTaskId(null);
 
     if (!over || active.id === over.id) return;
+
+    const snapshot = columnsRef.current.map((c) => ({ ...c, tasks: [...c.tasks] }));
 
     const activeCol = findColumnByTaskId(active.id as string);
     const overCol =
@@ -94,57 +100,59 @@ export function Board({
 
     if (!activeCol || !overCol) return;
 
-    setColumns((prev) => {
-      const sourceCol = prev.find((c) => c.id === activeCol.id);
-      const destCol = prev.find((c) => c.id === overCol.id);
-      if (!sourceCol || !destCol) return prev;
+    const sourceCol = columns.find((c) => c.id === activeCol.id);
+    const destCol = columns.find((c) => c.id === overCol.id);
+    if (!sourceCol || !destCol) return;
 
-      const sourceTasks = [...sourceCol.tasks];
-      const activeIndex = sourceTasks.findIndex((t) => t.id === active.id);
-      if (activeIndex === -1) return prev;
+    const sourceTasks = [...sourceCol.tasks];
+    const activeIndex = sourceTasks.findIndex((t) => t.id === active.id);
+    if (activeIndex === -1) return;
 
-      const [movedTask] = sourceTasks.splice(activeIndex, 1);
+    const [movedTask] = sourceTasks.splice(activeIndex, 1);
 
-      let destTasks: TaskData[];
-      let newOrder: number;
+    let destTasks: TaskData[];
+    let newOrder: number;
 
-      if (activeCol.id === overCol.id) {
-        const overIndex = sourceTasks.findIndex((t) => t.id === over.id);
-        sourceTasks.splice(overIndex >= 0 ? overIndex : sourceTasks.length, 0, movedTask);
-        destTasks = sourceTasks;
-        newOrder = overIndex >= 0 ? overIndex : sourceTasks.length - 1;
+    if (activeCol.id === overCol.id) {
+      const overIndex = sourceTasks.findIndex((t) => t.id === over.id);
+      sourceTasks.splice(overIndex >= 0 ? overIndex : sourceTasks.length, 0, movedTask);
+      destTasks = sourceTasks;
+      newOrder = overIndex >= 0 ? overIndex : sourceTasks.length - 1;
+    } else {
+      destTasks = [...destCol.tasks];
+      const overIndex = destTasks.findIndex((t) => t.id === over.id);
+      if (overIndex >= 0) {
+        destTasks.splice(overIndex, 0, movedTask);
       } else {
-        destTasks = [...destCol.tasks];
-        const overIndex = destTasks.findIndex((t) => t.id === over.id);
-        if (overIndex >= 0) {
-          destTasks.splice(overIndex, 0, movedTask);
-        } else {
-          destTasks.push(movedTask);
-        }
-        newOrder = overIndex >= 0 ? overIndex : destTasks.length - 1;
+        destTasks.push(movedTask);
       }
+      newOrder = overIndex >= 0 ? overIndex : destTasks.length - 1;
+    }
 
-      const formData = new FormData();
-      formData.set("taskId", active.id as string);
-      formData.set("newColumnId", destCol.id);
-      formData.set("newOrder", String(newOrder));
-      moveTask(formData);
-
-      return prev.map((c) => {
-        if (c.id === sourceCol.id) return { ...c, tasks: c.id === destCol.id ? destTasks : sourceTasks };
-        if (c.id === destCol.id) return { ...c, tasks: destTasks };
-        return c;
-      });
+    const newColumns = columns.map((c) => {
+      if (c.id === sourceCol.id) return { ...c, tasks: c.id === destCol.id ? destTasks : sourceTasks };
+      if (c.id === destCol.id) return { ...c, tasks: destTasks };
+      return c;
     });
+
+    setColumns(newColumns);
+
+    const formData = new FormData();
+    formData.set("taskId", active.id as string);
+    formData.set("newColumnId", destCol.id);
+    formData.set("newOrder", String(newOrder));
+
+    const result = await moveTask(formData);
+    if (!result?.success) {
+      setColumns(snapshot);
+    }
   }
 
   function handleTaskClick(task: TaskData) {
     setSelectedTask(task);
   }
 
-  async function handleAddColumn() {
-    const name = prompt("Column name:");
-    if (!name) return;
+  async function handleAddColumn(name: string) {
     const formData = new FormData();
     formData.set("boardId", boardId);
     formData.set("name", name);
@@ -175,7 +183,7 @@ export function Board({
         ))}
         <div className="flex-shrink-0 w-72">
           <button
-            onClick={handleAddColumn}
+            onClick={() => setShowColumnPrompt(true)}
             className="w-full rounded-xl border-2 border-dashed border-gray-200 p-4 text-sm text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700"
           >
             + Add Column
@@ -211,6 +219,18 @@ export function Board({
           }}
         />
       )}
+
+      <PromptDialog
+        open={showColumnPrompt}
+        onClose={() => setShowColumnPrompt(false)}
+        onConfirm={(name) => {
+          setShowColumnPrompt(false);
+          handleAddColumn(name);
+        }}
+        title="Add Column"
+        placeholder="Column name"
+        confirmLabel="Add"
+      />
     </DndContext>
   );
 }

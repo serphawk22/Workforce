@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { createSprint, startSprint, completeSprint, deleteSprint } from "@/actions/sprint";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type SprintData = {
   id: string;
@@ -26,6 +27,7 @@ export function SprintSidebar({
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "complete" | "delete"; sprintId: string } | null>(null);
 
   const isBacklog = pathname === `/project/${projectId}/backlog`;
   const isOnSprint = pathname.startsWith(`/project/${projectId}/sprint/`);
@@ -55,7 +57,6 @@ export function SprintSidebar({
   }
 
   async function handleComplete(sprintId: string) {
-    if (!confirm("Complete this sprint?")) return;
     const formData = new FormData();
     formData.set("sprintId", sprintId);
     await completeSprint(formData);
@@ -63,11 +64,17 @@ export function SprintSidebar({
   }
 
   async function handleDelete(sprintId: string) {
-    if (!confirm("Delete this sprint? Tasks will be unassigned.")) return;
     const formData = new FormData();
     formData.set("sprintId", sprintId);
     await deleteSprint(formData);
     router.refresh();
+  }
+
+  function handleConfirm() {
+    if (!confirmAction) return;
+    if (confirmAction.type === "complete") handleComplete(confirmAction.sprintId);
+    if (confirmAction.type === "delete") handleDelete(confirmAction.sprintId);
+    setConfirmAction(null);
   }
 
   const statusColors: Record<string, string> = {
@@ -110,12 +117,12 @@ export function SprintSidebar({
             </div>
             <span className="ml-2 text-xs text-gray-400">{activeSprint._count.tasks}</span>
           </a>
-          <button
-            onClick={() => handleComplete(activeSprint.id)}
-            className="mt-2 w-full rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800"
-          >
-            Complete Sprint
-          </button>
+            <button
+              onClick={() => setConfirmAction({ type: "complete", sprintId: activeSprint.id })}
+              className="mt-2 w-full rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800"
+            >
+              Complete Sprint
+            </button>
         </div>
       )}
 
@@ -209,6 +216,20 @@ export function SprintSidebar({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirm}
+        title={confirmAction?.type === "complete" ? "Complete Sprint" : "Delete Sprint"}
+        message={
+          confirmAction?.type === "complete"
+            ? "Complete this sprint? Tasks not in the final column will be moved back to the backlog."
+            : "Delete this sprint? Tasks will be unassigned from this sprint."
+        }
+        confirmLabel={confirmAction?.type === "complete" ? "Complete" : "Delete"}
+        danger={confirmAction?.type === "delete"}
+      />
     </div>
   );
 }

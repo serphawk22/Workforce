@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
 
 export default async function MyTasksPage() {
-  const session = await requireAuth();
+  const session = await requireSetup();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },

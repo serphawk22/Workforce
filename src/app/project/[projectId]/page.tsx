@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { Board } from "@/components/board/board";
 import { SearchBar } from "./search-bar";
@@ -12,7 +12,7 @@ export default async function ProjectPage(props: {
 }) {
   const { projectId } = await props.params;
   const searchParams = await props.searchParams;
-  const session = await requireAuth();
+  const session = await requireSetup();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },
@@ -115,6 +115,10 @@ export default async function ProjectPage(props: {
           </div>
         </div>
 
+        <div className="mx-auto max-w-7xl px-6 mb-6">
+          <ProjectStats columns={board.columns} />
+        </div>
+
         <div className="flex">
           <SprintSidebar
             projectId={projectId}
@@ -153,6 +157,45 @@ export default async function ProjectPage(props: {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function ProjectStats({ columns }: { columns: Array<{ id: string; name: string; tasks: Array<{ assigneeId: string | null }> }> }) {
+  const allTasks = columns.flatMap((c) => c.tasks);
+  const totalTasks = allTasks.length;
+  const doneTasks = columns
+    .filter((c) => ["Done", "Released", "Closed"].includes(c.name))
+    .flatMap((c) => c.tasks);
+  const completedCount = doneTasks.length;
+  const pendingCount = totalTasks - completedCount;
+
+  const developerIds = new Set(allTasks.map((t) => t.assigneeId).filter(Boolean));
+  const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+  return (
+    <div className="grid grid-cols-4 gap-4">
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-xs text-gray-500">Total Tasks</p>
+        <p className="mt-0.5 text-lg font-bold text-gray-900">{totalTasks}</p>
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-xs text-gray-500">Completed</p>
+        <p className="mt-0.5 text-lg font-bold text-emerald-600">{completedCount}</p>
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-xs text-gray-500">Pending</p>
+        <p className="mt-0.5 text-lg font-bold text-amber-600">{pendingCount}</p>
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-xs text-gray-500">Developers</p>
+        <p className="mt-0.5 text-lg font-bold text-blue-600">{developerIds.size}</p>
+        {pct > 0 && (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

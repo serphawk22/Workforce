@@ -5,6 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { addColumnSchema, reorderColumnsSchema } from "@/lib/schemas";
 
+async function checkColumnAccess(boardId: string, userId: string): Promise<boolean> {
+  const board = await prisma.board.findUnique({
+    where: { id: boardId },
+    include: { project: { select: { workspace: { select: { members: { where: { userId }, select: { id: true } } } } } } },
+  });
+  return !!board && board.project.workspace.members.length > 0;
+}
+
 export async function addColumn(formData: FormData) {
   const session = await requireAuth();
   const parsed = addColumnSchema.safeParse({
@@ -14,6 +22,10 @@ export async function addColumn(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   const { boardId, name } = parsed.data;
+  if (!(await checkColumnAccess(boardId, session.user.id))) {
+    return { error: { _form: ["Not authorized"] } };
+  }
+
   const maxOrder = await prisma.column.aggregate({
     where: { boardId },
     _max: { order: true },
@@ -34,6 +46,14 @@ export async function renameColumn(formData: FormData) {
   const name = formData.get("name") as string;
   if (!columnId || !name) return { error: { _form: ["Required fields missing"] } };
 
+  const existing = await prisma.column.findUnique({
+    where: { id: columnId },
+    include: { board: { select: { id: true, project: { select: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } } },
+  });
+  if (!existing || existing.board.project.workspace.members.length === 0) {
+    return { error: { _form: ["Not authorized"] } };
+  }
+
   const column = await prisma.column.update({
     where: { id: columnId },
     data: { name },
@@ -51,9 +71,10 @@ export async function deleteColumn(formData: FormData) {
 
   const column = await prisma.column.findUnique({
     where: { id: columnId },
-    include: { board: { include: { project: true } }, tasks: true },
+    include: { board: { include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } }, tasks: true },
   });
   if (!column) return { error: { _form: ["Column not found"] } };
+  if (column.board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
   if (column.tasks.length > 0) return { error: { _form: ["Column not empty"] } };
 
   await prisma.column.delete({ where: { id: columnId } });
@@ -73,9 +94,10 @@ export async function reorderColumns(formData: FormData) {
 
   const board = await prisma.board.findUnique({
     where: { id: boardId },
-    include: { project: true },
+    include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } },
   });
   if (!board) return { error: { _form: ["Board not found"] } };
+  if (board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
 
   await prisma.$transaction(
     columnIds.map((id, index) =>

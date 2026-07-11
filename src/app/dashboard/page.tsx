@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 function formatRelativeTime(date: Date): string {
@@ -27,6 +26,15 @@ function formatDate(date: Date | null): string {
 
 function isOverdue(date: Date): boolean {
   return date < new Date();
+}
+
+function isToday(date: Date): boolean {
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
 }
 
 function PriorityDot({ priority }: { priority: string }) {
@@ -65,6 +73,15 @@ function ClockIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  );
+}
+
 function GridIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -76,11 +93,94 @@ function GridIcon() {
   );
 }
 
-function ChevronRight() {
+function ProjectIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors">
-      <polyline points="9 18 15 12 9 6" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function TaskLinks({ githubLink, productionUrl }: { githubLink: string | null; productionUrl: string | null }) {
+  if (!githubLink && !productionUrl) return null;
+  return (
+    <div className="mt-1 flex gap-2">
+      {githubLink && (
+        <a
+          href={githubLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+        >
+          <LinkIcon />
+          GitHub
+        </a>
+      )}
+      {productionUrl && (
+        <a
+          href={productionUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+        >
+          <LinkIcon />
+          Production
+        </a>
+      )}
+    </div>
+  );
+}
+
+function TaskItem({ task }: { task: {
+  id: string;
+  title: string;
+  priority: string;
+  dueDate: Date | null;
+  githubLink: string | null;
+  productionUrl: string | null;
+  column: { name: string; board: { projectId: string; project: { name: string } } };
+} }) {
+  return (
+    <a
+      href={`/project/${task.column.board.projectId}`}
+      className="group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
+    >
+      <PriorityDot priority={task.priority} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-gray-900">
+          {task.title}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Badge variant="gray">{task.column.board.project.name}</Badge>
+          <span className="text-xs text-gray-400">
+            {task.column.name}
+          </span>
+          {task.dueDate && (
+            <span
+              className={`text-xs ${
+                isOverdue(task.dueDate)
+                  ? "font-medium text-red-600"
+                  : "text-gray-400"
+              }`}
+            >
+              Due {formatDate(task.dueDate)}
+            </span>
+          )}
+        </div>
+        <TaskLinks githubLink={task.githubLink} productionUrl={task.productionUrl} />
+      </div>
+    </a>
   );
 }
 
@@ -94,7 +194,7 @@ function ArrowUpRight() {
 }
 
 export default async function DashboardPage() {
-  const session = await requireAuth();
+  const session = await requireSetup();
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return null;
 
@@ -102,19 +202,40 @@ export default async function DashboardPage() {
     where: { members: { some: { userId: session.user.id } } },
   });
 
-  const myTasks = await prisma.task.findMany({
+  const now = new Date();
+
+  const allMyTasks = await prisma.task.findMany({
     where: { assigneeId: session.user.id },
     include: {
       column: { include: { board: { include: { project: true } } } },
     },
     orderBy: { updatedAt: "desc" },
-    take: 10,
   });
 
-  const now = new Date();
-  const overdueTasks = myTasks.filter(
+  const overdueTasks = allMyTasks.filter(
     (t) => t.dueDate && t.dueDate < now && t.column.name !== "Done"
   );
+
+  const tasksDueToday = allMyTasks.filter(
+    (t) => t.dueDate && isToday(t.dueDate) && t.column.name !== "Done"
+  );
+
+  const completedTasks = allMyTasks.filter((t) =>
+    ["Done", "Released", "Closed"].includes(t.column.name)
+  );
+
+  const inProgressTasks = allMyTasks.filter((t) =>
+    ["In Progress", "Review"].includes(t.column.name)
+  );
+
+  const totalAssigned = allMyTasks.length;
+  const completionPct = totalAssigned > 0
+    ? Math.round((completedTasks.length / totalAssigned) * 100)
+    : 0;
+
+  const projectNames = [
+    ...new Set(allMyTasks.map((t) => t.column.board.project.name)),
+  ];
 
   const recentTasks = await prisma.task.findMany({
     where: {
@@ -129,6 +250,11 @@ export default async function DashboardPage() {
     orderBy: { updatedAt: "desc" },
     take: 5,
   });
+
+  const upcomingTasks = allMyTasks
+    .filter((t) => t.dueDate && t.dueDate >= now && t.column.name !== "Done")
+    .sort((a, b) => (a.dueDate!.getTime() - b.dueDate!.getTime()))
+    .slice(0, 5);
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -150,159 +276,197 @@ export default async function DashboardPage() {
           </a>
         </div>
 
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={<ListIcon />}
             title="Assigned to me"
-            value={myTasks.length}
-            description="Tasks assigned to you"
+            value={totalAssigned}
+            description={completionPct > 0 ? `${completionPct}% completed` : "Tasks assigned to you"}
             accentClass="text-blue-600"
             bgAccentClass="bg-blue-50"
           />
           <StatCard
             icon={<ClockIcon />}
+            title="Due Today"
+            value={tasksDueToday.length}
+            description="Tasks due today"
+            accentClass="text-amber-600"
+            bgAccentClass="bg-amber-50"
+          />
+          <StatCard
+            icon={<CheckIcon />}
+            title="Completed"
+            value={completedTasks.length}
+            description={completionPct > 0 ? `${completionPct}% of assigned` : "Tasks completed"}
+            accentClass="text-emerald-600"
+            bgAccentClass="bg-emerald-50"
+          />
+          <StatCard
+            icon={<GridIcon />}
             title="Overdue"
             value={overdueTasks.length}
             description="Tasks past their due date"
             accentClass="text-red-600"
             bgAccentClass="bg-red-50"
           />
-          <StatCard
-            icon={<GridIcon />}
-            title="Workspaces"
-            value={workspaces.length}
-            description="Workspaces you belong to"
-            accentClass="text-emerald-600"
-            bgAccentClass="bg-emerald-50"
-          />
         </div>
 
-        {workspaces.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-blue-600">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Welcome to TaskFlow!
-            </h2>
-            <p className="mb-6 text-sm text-gray-500">
-              Create your first workspace to get started with managing projects and tasks.
-            </p>
-            <CreateWorkspaceForm />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
+        {tasksDueToday.length > 0 && (
+          <div className="mb-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-gray-900">
-                  Your Workspaces
+                  Today&apos;s Tasks
                 </h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                  {workspaces.length}
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-xs font-medium text-amber-700">
+                  {tasksDueToday.length}
                 </span>
               </div>
               <div className="space-y-1">
-                {workspaces.map((w) => (
-                  <a
-                    key={w.id}
-                    href={`/workspace/${w.id}`}
-                    className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
-                  >
-                    <Avatar name={w.name} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">
-                        {w.name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Created {formatRelativeTime(w.createdAt)}
-                      </p>
-                    </div>
-                    <ChevronRight />
-                  </a>
+                {tasksDueToday.map((t) => (
+                  <TaskItem key={t.id} task={t} />
                 ))}
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
+        {overdueTasks.length > 0 && (
+          <div className="mb-5">
+            <div className="rounded-xl border border-red-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Recently Updated
+                <h2 className="text-base font-semibold text-red-700">
+                  Overdue Tasks
                 </h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                  {recentTasks.length}
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-red-100 text-xs font-medium text-red-700">
+                  {overdueTasks.length}
                 </span>
               </div>
               <div className="space-y-1">
-                {recentTasks.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-gray-400">No recent tasks</p>
-                ) : (
-                  recentTasks.map((t) => (
-                    <a
-                      key={t.id}
-                      href={`/project/${t.column.board.projectId}`}
-                      className="group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
-                    >
-                      <PriorityDot priority={t.priority} />
-                      <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-gray-900">
-                            {t.title}
-                          </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <Badge variant="gray">{t.column.board.project.name}</Badge>
-                          <span className="text-xs text-gray-400">
-                            {t.column.name}
-                          </span>
-                          {t.dueDate && (
-                            <span
-                              className={`text-xs ${
-                                isOverdue(t.dueDate)
-                                  ? "font-medium text-red-600"
-                                  : "text-gray-400"
-                              }`}
-                            >
-                              Due {formatDate(t.dueDate)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </a>
-                  ))
-                )}
+                {overdueTasks.slice(0, 5).map((t) => (
+                  <TaskItem key={t.id} task={t} />
+                ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-2 text-sm font-semibold text-gray-900">Statistics</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Total Assigned</span>
+                <span className="font-medium text-gray-900">{totalAssigned}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Completed</span>
+                <span className="font-medium text-emerald-600">{completedTasks.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">In Progress</span>
+                <span className="font-medium text-blue-600">{inProgressTasks.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Pending</span>
+                <span className="font-medium text-gray-900">{totalAssigned - completedTasks.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Overdue</span>
+                <span className="font-medium text-red-600">{overdueTasks.length}</span>
+              </div>
+              {completionPct > 0 && (
+                <div className="pt-2">
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Completion</span>
+                    <span className="font-medium text-gray-900">{completionPct}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${completionPct}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">
+                Your Projects
+              </h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
+                {projectNames.length}
+              </span>
+            </div>
+            {projectNames.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400">No projects yet</p>
+            ) : (
+              <div className="space-y-1">
+                {projectNames.map((name) => (
+                  <div
+                    key={name}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                      <ProjectIcon />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {name}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">
+                Recently Updated
+              </h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
+                {recentTasks.length}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {recentTasks.length === 0 ? (
+                <p className="py-6 text-center text-sm text-gray-400">No recent tasks</p>
+              ) : (
+                recentTasks.map((t) => (
+                  <TaskItem key={t.id} task={t} />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {upcomingTasks.length > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">
+                Upcoming Timeline
+              </h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">
+                {upcomingTasks.length}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {upcomingTasks.map((t) => (
+                <div key={t.id} className="relative pl-8">
+                  <div className="absolute left-3 top-3 h-2 w-2 rounded-full border-2 border-blue-400 bg-white" />
+                  <div className="absolute left-[11px] top-6 h-full w-px bg-gray-200" />
+                  <TaskItem task={t} />
+                </div>
+              ))}
             </div>
           </div>
         )}
       </main>
     </div>
-  );
-}
-
-function CreateWorkspaceForm() {
-  return (
-    <form
-      action={async (formData: FormData) => {
-        "use server";
-        const { createWorkspace } = await import("@/actions/workspace");
-        await createWorkspace(formData);
-      }}
-      className="mx-auto flex max-w-sm gap-2"
-    >
-      <input
-        name="name"
-        placeholder="Workspace name"
-        required
-        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 transition-colors hover:border-gray-400"
-      />
-      <button
-        type="submit"
-        className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
-      >
-        Create
-      </button>
-    </form>
   );
 }

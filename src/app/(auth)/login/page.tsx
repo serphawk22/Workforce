@@ -1,13 +1,15 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite") || "";
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +29,7 @@ export default function LoginPage() {
       setError("Invalid email or password");
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      router.push(inviteToken ? `/invite/${inviteToken}` : "/dashboard");
       router.refresh();
     }
   }
@@ -47,7 +49,11 @@ export default function LoginPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="text-center mb-6">
           <h1 className="text-xl font-semibold text-gray-900">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-gray-500">Sign in to your account to continue</p>
+          {inviteToken ? (
+            <p className="mt-1.5 text-sm text-blue-600">Sign in to accept your workspace invitation</p>
+          ) : (
+            <p className="mt-1.5 text-sm text-gray-500">Sign in to your account to continue</p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -90,10 +96,7 @@ export default function LoginPage() {
       </div>
 
       <p className="mt-6 text-center text-sm text-gray-500">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-semibold text-gray-900 transition-colors hover:text-gray-700">
-          Create one
-        </Link>
+        Internal employee system. Accounts are created by your administrator.
       </p>
     </div>
   );

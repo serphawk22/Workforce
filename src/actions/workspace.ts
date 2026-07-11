@@ -8,6 +8,7 @@ import {
   inviteMemberSchema,
   removeMemberSchema,
 } from "@/lib/schemas";
+import { sendInviteEmail } from "@/lib/email";
 
 export async function createWorkspace(formData: FormData) {
   const session = await requireAuth();
@@ -58,17 +59,120 @@ export async function inviteMember(formData: FormData) {
       data: { userId: existingUser.id, workspaceId, role: "MEMBER" },
     });
   } else {
-    const pending = await prisma.pendingInvite.findFirst({
-      where: { email, workspaceId },
+    const activeInvite = await prisma.pendingInvite.findFirst({
+      where: {
+        email,
+        workspaceId,
+        status: "PENDING",
+        expiresAt: { gt: new Date() },
+      },
     });
-    if (pending) return { error: { _form: ["Already invited"] } };
+    if (activeInvite) return { error: { _form: ["Already invited"] } };
 
-    await prisma.pendingInvite.create({
-      data: { email, workspaceId, invitedById: session.user.id },
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { name: true },
     });
+
+    const invite = await prisma.pendingInvite.create({
+      data: {
+        email,
+        workspaceId,
+        invitedById: session.user.id,
+        token: crypto.randomUUID() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const inviterName = session.user.name || session.user.email || "Workspace Owner";
+
+    const emailResult = await sendInviteEmail({
+      email,
+      workspaceName: workspace?.name ?? "a workspace",
+      invitedByName: inviterName,
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+    });
+
+    if (!emailResult.success) {
+      console.error("[inviteMember] Email failed for", email, emailResult.error);
+      return {
+        success: true,
+        warning: "Invitation created but email could not be sent. The recipient will need to be invited again or you can resend later.",
+      };
+    }
   }
 
   revalidatePath(`/workspace/${workspaceId}`);
+  return { success: true };
+}
+
+export async function resendInvitation(formData: FormData) {
+  const session = await requireAuth();
+  const inviteId = formData.get("inviteId") as string;
+  if (!inviteId) return { error: "Invite ID required" };
+
+  const invite = await prisma.pendingInvite.findUnique({
+    where: { id: inviteId },
+    include: { workspace: { select: { name: true } } },
+  });
+
+  if (!invite) return { error: "Invitation not found" };
+
+  const member = await prisma.workspaceMember.findUnique({
+    where: {
+      userId_workspaceId: { userId: session.user.id, workspaceId: invite.workspaceId },
+    },
+  });
+  if (!member || (member.role !== "OWNER" && member.role !== "ADMIN")) {
+    return { error: "Not authorized" };
+  }
+
+  const inviterName = session.user.name || session.user.email || "Workspace Owner";
+
+  const emailResult = await sendInviteEmail({
+    email: invite.email,
+    workspaceName: invite.workspace.name,
+    invitedByName: inviterName,
+    token: invite.token,
+    expiresAt: invite.expiresAt,
+  });
+
+  if (!emailResult.success) {
+    return { error: emailResult.error ?? "Failed to send email" };
+  }
+
+  revalidatePath(`/workspace/${invite.workspaceId}`);
+  return { success: true };
+}
+
+export async function cancelInvitation(formData: FormData) {
+  const session = await requireAuth();
+  const inviteId = formData.get("inviteId") as string;
+  if (!inviteId) return { error: "Invite ID required" };
+
+  const invite = await prisma.pendingInvite.findUnique({
+    where: { id: inviteId },
+  });
+
+  if (!invite) return { error: "Invitation not found" };
+
+  const member = await prisma.workspaceMember.findUnique({
+    where: {
+      userId_workspaceId: { userId: session.user.id, workspaceId: invite.workspaceId },
+    },
+  });
+  if (!member || (member.role !== "OWNER" && member.role !== "ADMIN")) {
+    return { error: "Not authorized" };
+  }
+
+  await prisma.pendingInvite.update({
+    where: { id: inviteId },
+    data: { status: "CANCELLED" },
+  });
+
+  revalidatePath(`/workspace/${invite.workspaceId}`);
   return { success: true };
 }
 

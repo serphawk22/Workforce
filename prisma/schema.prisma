@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -13,6 +13,12 @@ model User {
   email        String   @unique
   passwordHash String
   avatarUrl    String?
+  role         String   @default("EMPLOYEE") // EMPLOYEE, ADMIN
+  displayName  String?
+  firstLoginRequired Boolean @default(false)
+  isActive     Boolean  @default(true)
+  themePreference String @default("light")
+  notificationPreferences String @default("{}")
   createdAt    DateTime @default(now())
 
   ownedWorkspaces  Workspace[]
@@ -54,6 +60,9 @@ model PendingInvite {
   email       String
   workspaceId String
   invitedById String
+  token       String   @unique @default(cuid())
+  status      String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED, CANCELLED
+  expiresAt   DateTime
   createdAt   DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -119,8 +128,17 @@ model Task {
   reporterId  String
   dueDate     DateTime?
   sprintId    String?
-  sheetCode   String?   @unique
-  order       Int
+  sheetCode       String?   @unique
+  originalOwner   String?
+  category        String?
+  githubLink      String?
+  productionUrl   String?
+  dateOfDevAcceptOrStart  DateTime?
+  dateOfDevComplete       DateTime?
+  dateOfQaOrUatStart      DateTime?
+  dateOfQaOrUatComplete   DateTime?
+  dateOfReleaseToProd     DateTime?
+  order           Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -133,15 +151,16 @@ model Task {
 }
 
 model SyncLog {
-  id          String   @id @default(cuid())
-  startedAt   DateTime
-  finishedAt  DateTime?
-  rowsRead    Int      @default(0)
-  rowsCreated Int      @default(0)
-  rowsUpdated Int      @default(0)
-  rowsSkipped Int      @default(0)
-  rowsFailed  Int      @default(0)
-  error       String?
+  id             String   @id @default(cuid())
+  startedAt      DateTime
+  finishedAt     DateTime?
+  rowsRead       Int      @default(0)
+  rowsCreated    Int      @default(0)
+  rowsUpdated    Int      @default(0)
+  rowsReassigned Int      @default(0)
+  rowsSkipped    Int      @default(0)
+  rowsFailed     Int      @default(0)
+  error          String?
 }
 
 model Label {

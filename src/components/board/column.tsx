@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { TaskCard } from "./task-card";
 import { renameColumn, deleteColumn } from "@/actions/column";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PromptDialog } from "@/components/ui/prompt-dialog";
 
 type TaskData = {
   id: string;
@@ -32,10 +35,11 @@ export function Column({
 }) {
   const router = useRouter();
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [showRename, setShowRename] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  async function handleRename() {
-    const name = prompt("New column name:", column.name);
-    if (!name || name === column.name) return;
+  async function handleRename(name: string) {
     const formData = new FormData();
     formData.set("columnId", column.id);
     formData.set("name", name);
@@ -44,12 +48,11 @@ export function Column({
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete column "${column.name}"?`)) return;
     const formData = new FormData();
     formData.set("columnId", column.id);
     const result = await deleteColumn(formData);
     if (result?.error) {
-      alert(Object.values(result.error).flat()[0]);
+      setDeleteError(Object.values(result.error).flat()[0] as string);
     } else {
       router.refresh();
     }
@@ -75,7 +78,7 @@ export function Column({
         </div>
         <div className="flex gap-0.5">
           <button
-            onClick={handleRename}
+            onClick={() => setShowRename(true)}
             className="rounded-md px-1.5 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
             title="Rename"
           >
@@ -85,7 +88,7 @@ export function Column({
             </svg>
           </button>
           <button
-            onClick={handleDelete}
+            onClick={() => setShowDelete(true)}
             className="rounded-md px-1.5 py-1 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
             title="Delete"
           >
@@ -115,6 +118,33 @@ export function Column({
           </div>
         )}
       </div>
+
+      <PromptDialog
+        open={showRename}
+        onClose={() => setShowRename(false)}
+        onConfirm={(name) => {
+          setShowRename(false);
+          handleRename(name);
+        }}
+        title="Rename Column"
+        defaultValue={column.name}
+        placeholder="New column name"
+        confirmLabel="Rename"
+      />
+
+      <ConfirmDialog
+        open={showDelete}
+        onClose={() => { setShowDelete(false); setDeleteError(null); }}
+        onConfirm={handleDelete}
+        title="Delete Column"
+        message={
+          deleteError
+            ? deleteError
+            : `Delete column "${column.name}"? This cannot be undone.`
+        }
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

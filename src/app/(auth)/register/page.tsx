@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { register } from "@/actions/register";
@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillEmail = searchParams.get("email") || "";
+  const inviteToken = searchParams.get("invite") || "";
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +36,8 @@ export default function RegisterPage() {
     const result = await register(null, formData);
 
     if (result?.success) {
-      router.push("/login");
+      const target = inviteToken ? `/login?invite=${inviteToken}` : "/login";
+      router.push(target);
     } else if (result?.error) {
       setErrors(result.error as Record<string, string[]>);
     }
@@ -58,7 +62,14 @@ export default function RegisterPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="text-center mb-6">
           <h1 className="text-xl font-semibold text-gray-900">Create an account</h1>
-          <p className="mt-1.5 text-sm text-gray-500">Get started with TaskFlow today</p>
+          {inviteToken && (
+            <p className="mt-1.5 text-sm text-blue-600">
+              You&apos;ve been invited to join a workspace — create an account to accept
+            </p>
+          )}
+          {!inviteToken && (
+            <p className="mt-1.5 text-sm text-gray-500">Get started with TaskFlow today</p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,7 +81,16 @@ export default function RegisterPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-            <input id="email" name="email" type="email" autoComplete="email" required placeholder="name@example.com" className={getFieldError("email") ? errorInputClass : inputClass} />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="name@example.com"
+              defaultValue={prefillEmail}
+              className={getFieldError("email") ? errorInputClass : inputClass}
+            />
             {getFieldError("email") && <p className="text-sm text-red-500 mt-1">{getFieldError("email")}</p>}
           </div>
 

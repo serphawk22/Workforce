@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { Board } from "@/components/board/board";
 import { SprintSidebar } from "@/components/sprint/sprint-sidebar";
@@ -8,7 +8,7 @@ export default async function SprintPage(props: {
   params: Promise<{ projectId: string; sprintId: string }>;
 }) {
   const { projectId, sprintId } = await props.params;
-  const session = await requireAuth();
+  const session = await requireSetup();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },

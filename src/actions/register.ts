@@ -30,7 +30,7 @@ export async function register(_prevState: unknown, formData: FormData) {
 
   // Accept any pending invites for this email
   const pendingInvites = await prisma.pendingInvite.findMany({
-    where: { email },
+    where: { email, status: "PENDING", expiresAt: { gt: new Date() } },
   });
 
   if (pendingInvites.length > 0) {
@@ -41,7 +41,10 @@ export async function register(_prevState: unknown, formData: FormData) {
         role: "MEMBER",
       })),
     });
-    await prisma.pendingInvite.deleteMany({ where: { email } });
+    await prisma.pendingInvite.updateMany({
+      where: { id: { in: pendingInvites.map((i) => i.id) } },
+      data: { status: "ACCEPTED" },
+    });
   }
 
   return { success: true };

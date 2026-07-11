@@ -6,6 +6,7 @@ import { updateTask, deleteTask } from "@/actions/task";
 import { createLabel, addTaskLabel, removeTaskLabel } from "@/actions/label";
 import { getTaskDetails } from "@/actions/task-queries";
 import { CommentSection } from "./comment-section";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type TaskData = {
   id: string;
@@ -50,9 +51,13 @@ export function TaskDetailModal({
   const [taskLabels, setTaskLabels] = useState(task.labels);
   const [loading, setLoading] = useState(false);
   const [showNewLabel, setShowNewLabel] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sprintId, setSprintId] = useState(task.sprintId || "");
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#3B82F6");
+
+  const [detailData, setDetailData] = useState<Record<string, unknown>>({});
+  const d = detailData as Record<string, string | null>;
 
   useEffect(() => {
     getTaskDetails(task.id).then((data) => {
@@ -64,6 +69,7 @@ export function TaskDetailModal({
         setDueDate(data.dueDate ? data.dueDate.toISOString().split("T")[0] : "");
         setSprintId(data.sprintId || "");
         setTaskLabels(data.labels.map((l) => l.label));
+        setDetailData(data as unknown as Record<string, unknown>);
       }
     });
   }, [task.id]);
@@ -97,10 +103,10 @@ export function TaskDetailModal({
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this task?")) return;
     const formData = new FormData();
     formData.set("taskId", task.id);
     await deleteTask(formData);
+    setShowDeleteConfirm(false);
     onClose();
     router.refresh();
   }
@@ -204,6 +210,61 @@ export function TaskDetailModal({
                 </div>
               )}
 
+              {(d.category || d.githubLink || d.productionUrl) && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2">
+                  {d.category && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-medium text-gray-500">Category:</span>
+                      <span className="text-gray-900">{d.category}</span>
+                    </div>
+                  )}
+                  {d.githubLink && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-medium text-gray-500">GitHub:</span>
+                      <a href={d.githubLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">{d.githubLink}</a>
+                    </div>
+                  )}
+                  {d.productionUrl && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-medium text-gray-500">Production:</span>
+                      <a href={d.productionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">{d.productionUrl}</a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {d.sheetCode && (
+                <div className="text-xs text-gray-400">
+                  Sheet Code: {d.sheetCode}
+                  {d.originalOwner && <span> &middot; Original Owner: {d.originalOwner}</span>}
+                </div>
+              )}
+
+              {(d.dateOfDevAcceptOrStart || d.dateOfDevComplete ||
+                d.dateOfQaOrUatStart || d.dateOfQaOrUatComplete ||
+                d.dateOfReleaseToProd) && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Timeline</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {d.dateOfDevAcceptOrStart && (
+                      <><span className="text-gray-500">Dev Start:</span><span className="text-gray-900">{new Date(d.dateOfDevAcceptOrStart).toLocaleDateString()}</span></>
+                    )}
+                    {d.dateOfDevComplete && (
+                      <><span className="text-gray-500">Dev Complete:</span><span className="text-gray-900">{new Date(d.dateOfDevComplete).toLocaleDateString()}</span></>
+                    )}
+                    {d.dateOfQaOrUatStart && (
+                      <><span className="text-gray-500">QA Start:</span><span className="text-gray-900">{new Date(d.dateOfQaOrUatStart).toLocaleDateString()}</span></>
+                    )}
+                    {d.dateOfQaOrUatComplete && (
+                      <><span className="text-gray-500">QA Complete:</span><span className="text-gray-900">{new Date(d.dateOfQaOrUatComplete).toLocaleDateString()}</span></>
+                    )}
+                    {d.dateOfReleaseToProd && (
+                      <><span className="text-gray-500">Released:</span><span className="text-gray-900">{new Date(d.dateOfReleaseToProd).toLocaleDateString()}</span></>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <p className="cursor-pointer text-xs text-gray-400 transition-colors hover:text-gray-600">Click to edit...</p>
             </div>
           ) : (
@@ -292,7 +353,7 @@ export function TaskDetailModal({
                 <button onClick={() => setEditing(false)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   Cancel
                 </button>
-                <button onClick={handleDelete} className="ml-auto text-sm font-medium text-red-500 transition-colors hover:text-red-700">
+                <button onClick={() => setShowDeleteConfirm(true)} className="ml-auto text-sm font-medium text-red-500 transition-colors hover:text-red-700">
                   Delete
                 </button>
               </div>
@@ -301,6 +362,16 @@ export function TaskDetailModal({
 
           <hr className="my-6 border-gray-100" />
           <CommentSection taskId={task.id} />
+
+          <ConfirmDialog
+            open={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={handleDelete}
+            title="Delete Task"
+            message="Delete this task? This cannot be undone."
+            confirmLabel="Delete"
+            danger
+          />
         </div>
       </div>
     </div>

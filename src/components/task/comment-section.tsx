@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addComment, deleteComment } from "@/actions/comment";
 import { getTaskDetails } from "@/actions/task-queries";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type CommentData = {
   id: string;
@@ -18,6 +19,7 @@ export function CommentSection({ taskId }: { taskId: string }) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   useEffect(() => {
     getTaskDetails(taskId).then((task) => {
@@ -60,11 +62,11 @@ export function CommentSection({ taskId }: { taskId: string }) {
   }
 
   async function handleDelete(commentId: string) {
-    if (!confirm("Delete this comment?")) return;
     const formData = new FormData();
     formData.set("commentId", commentId);
     await deleteComment(formData);
     setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setDeleteCommentId(null);
     router.refresh();
   }
 
@@ -106,7 +108,7 @@ export function CommentSection({ taskId }: { taskId: string }) {
                   {new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </span>
                 <button
-                  onClick={() => handleDelete(c.id)}
+                  onClick={() => setDeleteCommentId(c.id)}
                   className="text-xs font-medium text-gray-400 transition-colors hover:text-red-500"
                 >
                   Delete
@@ -118,6 +120,16 @@ export function CommentSection({ taskId }: { taskId: string }) {
         ))}
         {comments.length === 0 && <p className="text-sm text-gray-400 text-center py-6">No comments yet</p>}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteCommentId}
+        onClose={() => setDeleteCommentId(null)}
+        onConfirm={() => deleteCommentId && handleDelete(deleteCommentId)}
+        title="Delete Comment"
+        message="Delete this comment? This cannot be undone."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }
