@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/authorization";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { QuickSyncButton } from "@/components/dashboard/quick-sync-button";
+import { formatDate, formatRelativeTime, getWeekStart } from "@/lib/dates";
 
 function UsersIcon() {
   return (
@@ -54,7 +55,34 @@ function FolderIcon() {
   );
 }
 
-function formatDate(date: Date): string {
+function ListIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
+
+function ArrowUpRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <line x1="7" y1="17" x2="17" y2="7" />
+      <polyline points="7 7 17 7 17 17" />
+    </svg>
+  );
+}
+
+function isToday(date: Date): boolean {
+  const n = new Date();
+  return date.getFullYear() === n.getFullYear() && date.getMonth() === n.getMonth() && date.getDate() === n.getDate();
+}
+
+function formatDateTime(date: Date): string {
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -64,11 +92,24 @@ function formatDate(date: Date): string {
 }
 
 export default async function AdminDashboardPage() {
-  await requireAdmin();
-
+  const session = await requireAdmin();
+  const userId = session.user.id;
   const now = new Date();
 
-  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, lastSync] = await Promise.all([
+  const myTasks = await prisma.task.findMany({
+    where: { assigneeId: userId },
+    include: { column: { select: { name: true } } },
+  });
+
+  const myTotal = myTasks.length;
+  const myCompleted = myTasks.filter((t) => ["Done", "Released", "Closed"].includes(t.column.name)).length;
+  const myOverdue = myTasks.filter((t) => t.dueDate && t.dueDate < now && !["Done", "Released", "Closed"].includes(t.column.name)).length;
+  const myDueToday = myTasks.filter((t) => t.dueDate && isToday(t.dueDate) && !["Done", "Released", "Closed"].includes(t.column.name)).length;
+  const myPct = myTotal > 0 ? Math.round((myCompleted / myTotal) * 100) : 0;
+
+  const weekStart = getWeekStart(now);
+
+  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, lastSync, qaPendingCount, completedThisWeekCount, recentlyReleased] = await Promise.all([
     prisma.user.count({ where: { role: "EMPLOYEE" } }),
     prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
     prisma.task.count(),
@@ -85,6 +126,29 @@ export default async function AdminDashboardPage() {
     }),
     prisma.task.count({ where: { assigneeId: null } }),
     prisma.syncLog.findFirst({ orderBy: { startedAt: "desc" } }),
+    prisma.task.count({
+      where: {
+        column: { name: { in: ["Review"] } },
+        dateOfQaOrUatComplete: null,
+      },
+    }),
+    prisma.task.count({
+      where: {
+        column: { name: { in: ["Done", "Released", "Closed"] } },
+        updatedAt: { gte: weekStart },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        dateOfReleaseToProd: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        column: { select: { name: true } },
+      },
+      orderBy: { dateOfReleaseToProd: "desc" },
+      take: 10,
+    }),
   ]);
 
   const columns = await prisma.column.findMany({
@@ -107,11 +171,58 @@ export default async function AdminDashboardPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Overview of all employees and tasks
+          Admin dashboard with your personal work and organization overview
         </p>
       </div>
+
+      <div className="mb-8 rounded-xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-blue-900">My Work</h2>
+          <div className="flex gap-2">
+            <Link href="/my-tasks" className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700">
+              My Tasks
+              <ArrowUpRight />
+            </Link>
+            <Link href="/my-projects" className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-blue-700 border border-blue-200 transition-colors hover:bg-blue-100">
+              My Projects
+              <ArrowUpRight />
+            </Link>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+            <p className="text-xs text-gray-500">My Tasks</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">{myTotal}</p>
+          </div>
+          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+            <p className="text-xs text-gray-500">Due Today</p>
+            <p className={`text-xl font-bold mt-0.5 ${myDueToday > 0 ? "text-amber-600" : "text-gray-900"}`}>{myDueToday}</p>
+          </div>
+          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+            <p className="text-xs text-gray-500">Completed</p>
+            <p className="text-xl font-bold text-emerald-600 mt-0.5">{myCompleted}</p>
+          </div>
+          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+            <p className="text-xs text-gray-500">Overdue</p>
+            <p className={`text-xl font-bold mt-0.5 ${myOverdue > 0 ? "text-red-600" : "text-gray-900"}`}>{myOverdue}</p>
+          </div>
+        </div>
+        {myTotal > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-blue-700">Completion</span>
+              <span className="font-medium text-blue-900">{myPct}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-blue-200">
+              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${myPct}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">Organization Overview</h2>
 
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
@@ -240,7 +351,7 @@ export default async function AdminDashboardPage() {
                     </div>
                   </div>
                   <span className="shrink-0 text-xs text-gray-400">
-                    {formatDate(t.updatedAt)}
+                    {formatDateTime(t.updatedAt)}
                   </span>
                 </div>
               ))
@@ -248,6 +359,41 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="rounded-xl border border-blue-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-blue-700">Completed This Week</h2>
+          <p className="text-3xl font-bold text-blue-600">{completedThisWeekCount}</p>
+          <p className="mt-1 text-xs text-gray-500">Tasks moved to Done/Released/Closed</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-amber-700">QA Pending</h2>
+          <p className="text-3xl font-bold text-amber-600">{qaPendingCount}</p>
+          <p className="mt-1 text-xs text-gray-500">In Review without QA completion date</p>
+        </div>
+      </div>
+
+      {recentlyReleased.length > 0 && (
+        <div className="mb-6 rounded-xl border border-purple-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-purple-700">Recently Released (7 days)</h2>
+          <div className="space-y-2">
+            {recentlyReleased.map((t) => (
+              <div key={t.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">{t.title}</p>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                    {t.assignee && <span>{t.assignee.name}</span>}
+                    <Badge variant="gray">{t.column.name}</Badge>
+                  </div>
+                </div>
+                <span className="shrink-0 text-xs text-gray-400">
+                  {t.dateOfReleaseToProd ? formatDate(t.dateOfReleaseToProd) : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

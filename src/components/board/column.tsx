@@ -18,6 +18,12 @@ type TaskData = {
   labels: { id: string; name: string; color: string }[];
   commentCount: number;
   sprintId: string | null;
+  createdAt: string;
+  dateOfDevAcceptOrStart: string | null;
+  dateOfDevComplete: string | null;
+  dateOfQaOrUatStart: string | null;
+  dateOfQaOrUatComplete: string | null;
+  dateOfReleaseToProd: string | null;
 };
 
 type ColumnData = {

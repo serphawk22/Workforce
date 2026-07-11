@@ -71,6 +71,12 @@ export default async function BacklogPage(props: {
       sprintId: t.sprintId,
       labels: t.labels.map((l) => ({ id: l.label.id, name: l.label.name, color: l.label.color })),
       commentCount: t.comments.length,
+      createdAt: t.createdAt.toISOString(),
+      dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,
+      dateOfDevComplete: t.dateOfDevComplete?.toISOString() || null,
+      dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
+      dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
+      dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
     })),
   }));
 

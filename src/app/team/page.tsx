@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireSetup } from "@/lib/require-setup";
+import { requireAdmin } from "@/lib/authorization";
 import { Nav } from "@/components/nav";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 export default async function TeamPage() {
-  const session = await requireSetup();
+  const session = await requireAdmin();
 
   const workspaces = await prisma.workspace.findMany({
     where: { members: { some: { userId: session.user.id } } },

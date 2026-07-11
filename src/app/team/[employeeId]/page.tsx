@@ -1,39 +1,24 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireSetup } from "@/lib/require-setup";
+import { requireAdmin } from "@/lib/authorization";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { isAdmin } from "@/lib/authorization";
+import { formatDate, isOverdue as checkOverdue } from "@/lib/dates";
 
-function formatDate(date: Date | null): string {
-  if (!date) return "-";
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const statusColors: Record<string, string> = {
+  "To Do": "bg-gray-100 text-gray-700",
+  "In Progress": "bg-blue-50 text-blue-700",
+  Review: "bg-amber-50 text-amber-700",
+  Done: "bg-emerald-50 text-emerald-700",
+  Released: "bg-purple-50 text-purple-700",
+  Closed: "bg-gray-100 text-gray-500",
+};
 
 export default async function EmployeeDetailPage(props: { params: Promise<{ employeeId: string }> }) {
   const { employeeId } = await props.params;
-  const session = await requireSetup();
-  const admin = await isAdmin();
-
-  if (session.user.id !== employeeId && !admin) {
-    return (
-      <div className="bg-slate-50 min-h-screen">
-        <Nav workspaces={[]} />
-        <main className="mx-auto max-w-7xl px-6 py-8 text-center">
-          <p className="text-sm text-gray-500">You do not have permission to view this page.</p>
-          <Link href="/team" className="mt-4 inline-block text-sm text-blue-600 hover:underline">
-            Back to Team
-          </Link>
-        </main>
-      </div>
-    );
-  }
+  const session = await requireAdmin();
 
   const employee = await prisma.user.findUnique({
     where: { id: employeeId },
@@ -150,7 +135,7 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-5 py-3">
             <h2 className="text-sm font-semibold text-gray-900">
-              All Tasks ({totalTasks})
+              Task Timeline ({totalTasks})
             </h2>
           </div>
           {tasks.length === 0 ? (
@@ -159,41 +144,65 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {tasks.map((t) => {
-                const isOverdue = t.dueDate && t.dueDate < now && !["Done", "Released", "Closed"].includes(t.column.name);
-                return (
-                  <div key={t.id} className="px-5 py-3.5 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${
-                            t.column.name === "Done" ? "bg-emerald-500" :
-                            t.column.name === "In Progress" ? "bg-blue-500" :
-                            t.column.name === "Review" ? "bg-amber-500" :
-                            "bg-gray-300"
-                          }`} />
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {t.title}
-                          </p>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                          <Badge variant="gray">{t.column.board.project.name}</Badge>
-                          <span>{t.column.name}</span>
-                          {t.dueDate && (
-                            <span className={isOverdue ? "font-medium text-red-600" : ""}>
-                              Due {formatDate(t.dueDate)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+              {tasks.map((t) => (
+                <div key={t.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${
+                      t.column.name === "Done" ? "bg-emerald-500" :
+                      t.column.name === "In Progress" ? "bg-blue-500" :
+                      t.column.name === "Review" ? "bg-amber-500" :
+                      "bg-gray-300"
+                    }`} />
+                    <p className="text-sm font-semibold text-gray-900">{t.title}</p>
+                    <span className={`ml-auto inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusColors[t.column.name] || "bg-gray-100 text-gray-700"}`}>
+                      {t.column.name}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
+                    <TimelineCell label="Requested" date={t.createdAt} />
+                    <TimelineCell label="Dev Start" date={t.dateOfDevAcceptOrStart} dotColor="blue" />
+                    <TimelineCell label="Dev Done" date={t.dateOfDevComplete} dotColor="emerald" />
+                    <TimelineCell label="QA Started" date={t.dateOfQaOrUatStart} dotColor="amber" />
+                    <TimelineCell label="QA Done" date={t.dateOfQaOrUatComplete} dotColor="emerald" />
+                    <TimelineCell label="Released" date={t.dateOfReleaseToProd} dotColor="purple" />
+                    {t.dueDate && (
+                      <TimelineCell
+                        label="Due"
+                        date={t.dueDate}
+                        highlight={checkOverdue(t.dueDate) && !["Done", "Released", "Closed"].includes(t.column.name)}
+                      />
+                    )}
+                  </div>
+                  {(t.githubLink || t.productionUrl) && (
+                    <div className="mt-2 flex gap-3 text-xs">
+                      {t.githubLink && <a href={t.githubLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a>}
+                      {t.productionUrl && <a href={t.productionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Production</a>}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function TimelineCell({ label, date, dotColor, highlight }: { label: string; date: Date | null; dotColor?: string; highlight?: boolean }) {
+  if (!date) return null;
+  const dotClass = dotColor ? `bg-${dotColor}-400` : "bg-gray-300";
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${
+      highlight ? "border-red-200 bg-red-50" : "border-gray-100 bg-gray-50"
+    }`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${highlight ? "bg-red-400" : dotClass}`} />
+      <div>
+        <p className="text-gray-400">{label}</p>
+        <p className={`font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>
+          {formatDate(date)}
+        </p>
+      </div>
     </div>
   );
 }

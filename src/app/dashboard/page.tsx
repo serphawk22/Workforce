@@ -2,64 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
 import { Nav } from "@/components/nav";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { TaskItem } from "@/components/dashboard/task-item";
 import { Badge } from "@/components/ui/badge";
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "today";
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 30) return `${diffDays} days ago`;
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths === 1) return "1 month ago";
-  return `${diffMonths} months ago`;
-}
-
-function formatDate(date: Date | null): string {
-  if (!date) return "";
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function isOverdue(date: Date): boolean {
-  return date < new Date();
-}
-
-function isToday(date: Date): boolean {
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
-}
-
-function PriorityDot({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    LOW: "bg-gray-400",
-    MEDIUM: "bg-blue-500",
-    HIGH: "bg-orange-500",
-    CRITICAL: "bg-red-500",
-  };
-  return (
-    <span
-      className={`mt-1.5 block h-2 w-2 shrink-0 rounded-full ${colors[priority] || "bg-gray-400"}`}
-    />
-  );
-}
+import { formatDate, formatRelativeTime, isToday, getWeekStart } from "@/lib/dates";
 
 function ListIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
+      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
   );
 }
@@ -67,8 +17,7 @@ function ListIcon() {
 function ClockIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
@@ -76,8 +25,7 @@ function ClockIcon() {
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
     </svg>
   );
 }
@@ -85,110 +33,26 @@ function CheckIcon() {
 function GridIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
+      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
     </svg>
   );
 }
 
-function ProjectIcon() {
+function RocketIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+      <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
     </svg>
-  );
-}
-
-function LinkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  );
-}
-
-function TaskLinks({ githubLink, productionUrl }: { githubLink: string | null; productionUrl: string | null }) {
-  if (!githubLink && !productionUrl) return null;
-  return (
-    <div className="mt-1 flex gap-2">
-      {githubLink && (
-        <a
-          href={githubLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-        >
-          <LinkIcon />
-          GitHub
-        </a>
-      )}
-      {productionUrl && (
-        <a
-          href={productionUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-        >
-          <LinkIcon />
-          Production
-        </a>
-      )}
-    </div>
-  );
-}
-
-function TaskItem({ task }: { task: {
-  id: string;
-  title: string;
-  priority: string;
-  dueDate: Date | null;
-  githubLink: string | null;
-  productionUrl: string | null;
-  column: { name: string; board: { projectId: string; project: { name: string } } };
-} }) {
-  return (
-    <a
-      href={`/project/${task.column.board.projectId}`}
-      className="group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
-    >
-      <PriorityDot priority={task.priority} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900">
-          {task.title}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <Badge variant="gray">{task.column.board.project.name}</Badge>
-          <span className="text-xs text-gray-400">
-            {task.column.name}
-          </span>
-          {task.dueDate && (
-            <span
-              className={`text-xs ${
-                isOverdue(task.dueDate)
-                  ? "font-medium text-red-600"
-                  : "text-gray-400"
-              }`}
-            >
-              Due {formatDate(task.dueDate)}
-            </span>
-          )}
-        </div>
-        <TaskLinks githubLink={task.githubLink} productionUrl={task.productionUrl} />
-      </div>
-    </a>
   );
 }
 
 function ArrowUpRight() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <line x1="7" y1="17" x2="17" y2="7" />
-      <polyline points="7 7 17 7 17 17" />
+      <line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" />
     </svg>
   );
 }
@@ -203,6 +67,7 @@ export default async function DashboardPage() {
   });
 
   const now = new Date();
+  const weekStart = getWeekStart(now);
 
   const allMyTasks = await prisma.task.findMany({
     where: { assigneeId: session.user.id },
@@ -219,6 +84,32 @@ export default async function DashboardPage() {
   const tasksDueToday = allMyTasks.filter(
     (t) => t.dueDate && isToday(t.dueDate) && t.column.name !== "Done"
   );
+
+  const tasksStartedToday = allMyTasks.filter(
+    (t) => t.dateOfDevAcceptOrStart && isToday(t.dateOfDevAcceptOrStart)
+  );
+
+  const completedThisWeek = allMyTasks.filter(
+    (t) =>
+      ["Done", "Released", "Closed"].includes(t.column.name) &&
+      t.updatedAt >= weekStart
+  );
+
+  const recentlyReleased = allMyTasks.filter(
+    (t) =>
+      t.dateOfReleaseToProd &&
+      t.dateOfReleaseToProd >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  );
+
+  const upcomingReleases = allMyTasks
+    .filter(
+      (t) =>
+        t.dateOfReleaseToProd &&
+        t.dateOfReleaseToProd >= now &&
+        !["Done", "Released", "Closed"].includes(t.column.name)
+    )
+    .sort((a, b) => a.dateOfReleaseToProd!.getTime() - b.dateOfReleaseToProd!.getTime())
+    .slice(0, 5);
 
   const completedTasks = allMyTasks.filter((t) =>
     ["Done", "Released", "Closed"].includes(t.column.name)
@@ -277,79 +168,75 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={<ListIcon />}
-            title="Assigned to me"
-            value={totalAssigned}
-            description={completionPct > 0 ? `${completionPct}% completed` : "Tasks assigned to you"}
-            accentClass="text-blue-600"
-            bgAccentClass="bg-blue-50"
-          />
-          <StatCard
-            icon={<ClockIcon />}
-            title="Due Today"
-            value={tasksDueToday.length}
-            description="Tasks due today"
-            accentClass="text-amber-600"
-            bgAccentClass="bg-amber-50"
-          />
-          <StatCard
-            icon={<CheckIcon />}
-            title="Completed"
-            value={completedTasks.length}
-            description={completionPct > 0 ? `${completionPct}% of assigned` : "Tasks completed"}
-            accentClass="text-emerald-600"
-            bgAccentClass="bg-emerald-50"
-          />
-          <StatCard
-            icon={<GridIcon />}
-            title="Overdue"
-            value={overdueTasks.length}
-            description="Tasks past their due date"
-            accentClass="text-red-600"
-            bgAccentClass="bg-red-50"
-          />
+          <StatCard icon={<ListIcon />} title="Assigned to me" value={totalAssigned} description={completionPct > 0 ? `${completionPct}% completed` : "Tasks assigned to you"} accentClass="text-blue-600" bgAccentClass="bg-blue-50" />
+          <StatCard icon={<ClockIcon />} title="Due Today" value={tasksDueToday.length} description="Tasks due today" accentClass="text-amber-600" bgAccentClass="bg-amber-50" />
+          <StatCard icon={<CheckIcon />} title="Completed" value={completedTasks.length} description={completionPct > 0 ? `${completionPct}% of assigned` : "Tasks completed"} accentClass="text-emerald-600" bgAccentClass="bg-emerald-50" />
+          <StatCard icon={<RocketIcon />} title="Started Today" value={tasksStartedToday.length} description="Dev started today" accentClass="text-blue-600" bgAccentClass="bg-blue-50" />
         </div>
 
-        {tasksDueToday.length > 0 && (
-          <div className="mb-5">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {tasksDueToday.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Today&apos;s Tasks
-                </h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-xs font-medium text-amber-700">
-                  {tasksDueToday.length}
-                </span>
+                <h2 className="text-base font-semibold text-amber-700">Due Today</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-xs font-medium text-amber-700">{tasksDueToday.length}</span>
               </div>
               <div className="space-y-1">
-                {tasksDueToday.map((t) => (
-                  <TaskItem key={t.id} task={t} />
-                ))}
+                {tasksDueToday.map((t) => <TaskItem key={t.id} task={t} />)}
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {overdueTasks.length > 0 && (
-          <div className="mb-5">
+          {overdueTasks.length > 0 && (
             <div className="rounded-xl border border-red-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-red-700">
-                  Overdue Tasks
-                </h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-red-100 text-xs font-medium text-red-700">
-                  {overdueTasks.length}
-                </span>
+                <h2 className="text-base font-semibold text-red-700">Overdue Tasks</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-red-100 text-xs font-medium text-red-700">{overdueTasks.length}</span>
               </div>
               <div className="space-y-1">
-                {overdueTasks.slice(0, 5).map((t) => (
-                  <TaskItem key={t.id} task={t} />
-                ))}
+                {overdueTasks.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {completedThisWeek.length > 0 && (
+            <div className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-emerald-700">Completed This Week</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-xs font-medium text-emerald-700">{completedThisWeek.length}</span>
+              </div>
+              <div className="space-y-1">
+                {completedThisWeek.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
+              </div>
+            </div>
+          )}
+
+          {recentlyReleased.length > 0 && (
+            <div className="rounded-xl border border-purple-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-purple-700">Recently Released</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-purple-100 text-xs font-medium text-purple-700">{recentlyReleased.length}</span>
+              </div>
+              <div className="space-y-1">
+                {recentlyReleased.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
+              </div>
+            </div>
+          )}
+
+          {upcomingReleases.length > 0 && (
+            <div className="rounded-xl border border-blue-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-blue-700">Upcoming Releases</h2>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">{upcomingReleases.length}</span>
+              </div>
+              <div className="space-y-1">
+                {upcomingReleases.map((t) => <TaskItem key={t.id} task={t} />)}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -382,10 +269,7 @@ export default async function DashboardPage() {
                     <span className="font-medium text-gray-900">{completionPct}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-emerald-500 transition-all"
-                      style={{ width: `${completionPct}%` }}
-                    />
+                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${completionPct}%` }} />
                   </div>
                 </div>
               )}
@@ -394,29 +278,22 @@ export default async function DashboardPage() {
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                Your Projects
-              </h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                {projectNames.length}
-              </span>
+              <h2 className="text-base font-semibold text-gray-900">Your Projects</h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">{projectNames.length}</span>
             </div>
             {projectNames.length === 0 ? (
               <p className="py-6 text-center text-sm text-gray-400">No projects yet</p>
             ) : (
               <div className="space-y-1">
                 {projectNames.map((name) => (
-                  <div
-                    key={name}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                  >
+                  <div key={name} className="flex items-center gap-3 rounded-lg px-3 py-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <ProjectIcon />
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">
-                        {name}
-                      </p>
+                      <p className="truncate text-sm font-medium text-gray-900">{name}</p>
                     </div>
                   </div>
                 ))}
@@ -426,20 +303,14 @@ export default async function DashboardPage() {
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                Recently Updated
-              </h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">
-                {recentTasks.length}
-              </span>
+              <h2 className="text-base font-semibold text-gray-900">Recently Updated</h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">{recentTasks.length}</span>
             </div>
             <div className="space-y-1">
               {recentTasks.length === 0 ? (
                 <p className="py-6 text-center text-sm text-gray-400">No recent tasks</p>
               ) : (
-                recentTasks.map((t) => (
-                  <TaskItem key={t.id} task={t} />
-                ))
+                recentTasks.map((t) => <TaskItem key={t.id} task={t} />)
               )}
             </div>
           </div>
@@ -448,12 +319,8 @@ export default async function DashboardPage() {
         {upcomingTasks.length > 0 && (
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                Upcoming Timeline
-              </h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">
-                {upcomingTasks.length}
-              </span>
+              <h2 className="text-base font-semibold text-gray-900">Upcoming Timeline</h2>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">{upcomingTasks.length}</span>
             </div>
             <div className="space-y-1">
               {upcomingTasks.map((t) => (

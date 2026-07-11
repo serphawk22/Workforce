@@ -7,6 +7,7 @@ import { createLabel, addTaskLabel, removeTaskLabel } from "@/actions/label";
 import { getTaskDetails } from "@/actions/task-queries";
 import { CommentSection } from "./comment-section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatDate } from "@/lib/dates";
 
 type TaskData = {
   id: string;
@@ -240,27 +241,18 @@ export function TaskDetailModal({
                 </div>
               )}
 
-              {(d.dateOfDevAcceptOrStart || d.dateOfDevComplete ||
+              {(d.createdAt || d.dateOfDevAcceptOrStart || d.dateOfDevComplete ||
                 d.dateOfQaOrUatStart || d.dateOfQaOrUatComplete ||
                 d.dateOfReleaseToProd) && (
-                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Timeline</p>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    {d.dateOfDevAcceptOrStart && (
-                      <><span className="text-gray-500">Dev Start:</span><span className="text-gray-900">{new Date(d.dateOfDevAcceptOrStart).toLocaleDateString()}</span></>
-                    )}
-                    {d.dateOfDevComplete && (
-                      <><span className="text-gray-500">Dev Complete:</span><span className="text-gray-900">{new Date(d.dateOfDevComplete).toLocaleDateString()}</span></>
-                    )}
-                    {d.dateOfQaOrUatStart && (
-                      <><span className="text-gray-500">QA Start:</span><span className="text-gray-900">{new Date(d.dateOfQaOrUatStart).toLocaleDateString()}</span></>
-                    )}
-                    {d.dateOfQaOrUatComplete && (
-                      <><span className="text-gray-500">QA Complete:</span><span className="text-gray-900">{new Date(d.dateOfQaOrUatComplete).toLocaleDateString()}</span></>
-                    )}
-                    {d.dateOfReleaseToProd && (
-                      <><span className="text-gray-500">Released:</span><span className="text-gray-900">{new Date(d.dateOfReleaseToProd).toLocaleDateString()}</span></>
-                    )}
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  <p className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Timeline</p>
+                  <div className="relative pl-6 space-y-0">
+                    <TimelineStep label="Requested" date={d.createdAt as string} isFirst />
+                    <TimelineStep label="Development Started" date={d.dateOfDevAcceptOrStart as string} />
+                    <TimelineStep label="Development Completed" date={d.dateOfDevComplete as string} />
+                    <TimelineStep label="QA / UAT Started" date={d.dateOfQaOrUatStart as string} />
+                    <TimelineStep label="QA / UAT Completed" date={d.dateOfQaOrUatComplete as string} />
+                    <TimelineStep label="Released to Production" date={d.dateOfReleaseToProd as string} isLast />
                   </div>
                 </div>
               )}
@@ -373,6 +365,36 @@ export function TaskDetailModal({
             danger
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TimelineStep({ label, date, isFirst, isLast }: { label: string; date: string | null; isFirst?: boolean; isLast?: boolean }) {
+  const isCompleted = !!date;
+  return (
+    <div className="relative pb-6 last:pb-0">
+      {!isLast && (
+        <div className={`absolute left-0 top-3 bottom-0 w-px ${isCompleted ? "bg-emerald-400" : "bg-gray-200"}`} />
+      )}
+      <div className={`absolute left-[-5px] top-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full ${
+        isCompleted ? "bg-emerald-500" : "bg-gray-200"
+      }`}>
+        {isCompleted && (
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-2 w-2">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </div>
+      <div className="pl-4">
+        <span className={`text-xs font-medium ${isCompleted ? "text-gray-900" : "text-gray-400"}`}>
+          {label}
+        </span>
+        {date ? (
+          <p className="mt-0.5 text-xs font-semibold text-emerald-700">{formatDate(date)}</p>
+        ) : (
+          <p className="mt-0.5 text-xs text-gray-400">Pending</p>
+        )}
       </div>
     </div>
   );

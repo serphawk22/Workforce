@@ -17,89 +17,74 @@ export function AdminNav({
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  const navLinks = [
+  const myWorkLinks = [
     { href: "/admin", label: "Dashboard" },
-    { href: "/admin/team", label: "Team" },
-    { href: "/admin/google-sync", label: "Sync" },
+    { href: "/my-tasks", label: "My Tasks" },
+    { href: "/my-projects", label: "My Projects" },
   ];
+
+  const orgLinks = [
+    { href: "/admin/team", label: "Team" },
+    { href: "/admin/all-tasks", label: "All Tasks" },
+    { href: "/admin/all-projects", label: "All Projects" },
+    { href: "/admin/google-sync", label: "Google Sync" },
+    { href: "/admin/analytics", label: "Analytics" },
+  ];
+
+  function isActive(href: string) {
+    if (href === "/admin") return pathname === "/admin";
+    return pathname.startsWith(href);
+  }
+
+  function NavLinks({ links }: { links: typeof myWorkLinks }) {
+    return links.map((link) => {
+      const active = isActive(link.href);
+      return (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
+            active
+              ? "bg-gray-100 text-gray-900"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          {link.label}
+        </Link>
+      );
+    });
+  }
 
   return (
     <nav className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-        <div className="flex items-center gap-6">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+        <div className="flex items-center gap-2 overflow-x-auto">
           <Link
             href="/admin"
-            className="flex items-center gap-2 text-lg font-bold text-gray-900"
+            className="flex shrink-0 items-center gap-2 text-lg font-bold text-gray-900"
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 28 28"
-              fill="none"
-            >
+            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
               <rect width="28" height="28" rx="6" fill="#2563EB" />
-              <path
-                d="M8 14L12 18L20 10"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M8 14L12 18L20 10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             TaskFlow
-            <span className="ml-1 rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+            <span className="ml-0.5 rounded-md bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
               Admin
             </span>
           </Link>
 
-          <div className="flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href || (link.href !== "/admin" && pathname.startsWith(link.href));
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-gray-100 text-gray-900"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+          <span className="mx-2 h-5 w-px bg-gray-200 shrink-0" />
 
-          <select
-            onChange={(e) => {
-              if (e.target.value) router.push(`/workspace/${e.target.value}`);
-            }}
-            className="max-w-[180px] truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 transition-colors hover:border-gray-300 focus:outline-none"
-          >
-            <option value="">All workspaces</option>
-            {workspaces.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider shrink-0">My Work</span>
+          <NavLinks links={myWorkLinks} />
+
+          <span className="mx-2 h-5 w-px bg-gray-200 shrink-0" />
+
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider shrink-0">Org</span>
+          <NavLinks links={orgLinks} />
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/team"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
-          >
-            Team
-          </Link>
-          <Link
-            href="/dashboard"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
-          >
-            Main App
-          </Link>
-
+        <div className="flex items-center gap-2 shrink-0">
           <DropdownMenu
             trigger={
               <button className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-gray-100">

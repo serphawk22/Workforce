@@ -116,6 +116,16 @@ Transform this Jira clone into an Internal Employee Task Management System with 
 - [ ] **Set up Vercel Cron Jobs** or external cron service to hit `GET /api/cron/sync` every 10 minutes
 - [ ] **Grant sheet access** — Share spreadsheet `155p-n9kA56BLOoMrMSwg7frWsNmcJJEfWqIDDHqr81w` with `taskflow-sync@taskflow-501813.iam.gserviceaccount.com`
 
+### Application Redesign (Personal Work + Organization Management)
+- [x] **Employee Nav** — Replaced "Team" link with "My Projects" link in `src/components/nav.tsx`
+- [x] **Admin Nav** — Restructured into "My Work" (Dashboard, My Tasks, My Projects) and "Organization" (Team, All Tasks, All Projects, Google Sync, Analytics) groups in `src/app/admin/admin-nav.tsx`
+- [x] **My Projects Page** — Created `src/app/my-projects/page.tsx` showing projects where the user has assigned tasks, with progress bars and task counts
+- [x] **Admin All Tasks Page** — Created `src/app/admin/all-tasks/page.tsx` with client-side filters (search, project, employee, status, priority, category)
+- [x] **Admin All Projects Page** — Created `src/app/admin/all-projects/page.tsx` with developer count, progress, and task breakdown
+- [x] **Admin Analytics Page** — Created `src/app/admin/analytics/page.tsx` with status distribution, priority distribution, monthly activity (created vs completed), and top employees by task count
+- [x] **Admin Dashboard** — Added "My Work" section at top (task stats, completion bar) + "Organization Overview" below in `src/app/admin/page.tsx`
+- [x] **Security Hardening** — Changed `/team` and `/team/[employeeId]` from `requireSetup()` to `requireAdmin()` in both pages
+
 ### Google Sheets Mapping (current)
 | Sheet Column | Maps To | Notes |
 |-------------|---------|-------|
