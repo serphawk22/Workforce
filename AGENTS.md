@@ -144,3 +144,44 @@ Transform this Jira clone into an Internal Employee Task Management System with 
 | `date of qa or uat start` | `Task.dateOfQaOrUatStart` | |
 | `date of qa or uat complete` | `Task.dateOfQaOrUatComplete` | |
 | `date of release to prod` | `Task.dateOfReleaseToProd` | |
+
+---
+
+## Session: Employee Work Update System (July 11, 2026)
+
+### Goal
+Allow employees to update their work inside TaskFlow instead of Google Sheets. TaskFlow becomes the working application; Google Sheets stays synchronized automatically.
+
+### New Models (Prisma)
+- **Subtask**: `id`, `taskId`, `title`, `status` (TODO/IN_PROGRESS/REVIEW/TESTING/DONE), `createdById`, `createdAt`, `updatedAt`
+- **WorkUpdate**: `id`, `taskId`, `userId`, `subtaskId?`, `status`, `progressNotes`, `workSummary`, `githubLink`, `productionUrl`, `timeSpent` (minutes), `createdAt`
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `src/actions/subtask.ts` | Server actions: `createSubtask`, `updateSubtaskStatus`, `getSubtacks` |
+| `src/actions/work-update.ts` | Server actions: `submitWorkUpdate`, `getWorkUpdates`, `getEmployeeProjects` |
+| `src/components/work-update/work-update-form.tsx` | Modal form: project → task → subtask → status → notes → URLs → time spent → save |
+| `src/components/work-update/update-work-button.tsx` | Dashboard "Update Work" button, opens modal |
+| `src/app/admin/work-updates/page.tsx` | Admin page showing all work updates |
+| `src/app/admin/work-updates/work-updates-table.tsx` | Client table with search, filter by employee/project/status, CSV export, Print |
+| `src/app/api/activity-log/[taskId]/route.ts` | API route for fetching activity log entries |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `prisma/schema.prisma` | Added Subtask, WorkUpdate models + relations on User/Task |
+| `src/components/jira-nav.tsx` | Added Work Updates link in admin nav |
+| `src/app/(main)/dashboard/page.tsx` | Added UpdateWorkButton in header, employee project data fetch |
+| `src/components/task/task-detail-modal.tsx` | Added Subtasks tab (create, list, status update), Work Updates display |
+| `src/actions/reassign.ts` | Fixed type error (`?? undefined` for nullable fields) |
+| `src/actions/task.ts` | Fixed type error (`?? undefined` for nullable fields in logActivity) |
+
+### Key Implementation Details
+- `submitWorkUpdate()` moves task to the corresponding column based on status (TODO→To Do, IN_PROGRESS→In Progress, etc.)
+- Auto-sets date fields: IN_PROGRESS→dateOfDevAcceptOrStart, REVIEW→dateOfDevComplete, TESTING→dateOfQaOrUatStart, DONE→dateOfReleaseToProd
+- Syncs to Google Sheets via `syncTaskToSheet()` for status, GitHub link, production URL, and date changes
+- Employees can only update tasks assigned to themselves
+- Subtasks can be created inline during work update or inside the task detail modal
+- Admin Work Updates page supports CSV export, printing, and filtering by employee/project/status/search
+- Build passes with zero TypeScript errors

@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { register } from "@/actions/register";
 import { Button } from "@/components/ui/button";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillEmail = searchParams.get("email") || "";
@@ -125,5 +126,17 @@ export default function RegisterPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-sm mx-auto text-center py-12">
+        <p className="text-sm text-gray-500">Loading...</p>
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }

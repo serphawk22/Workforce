@@ -1,14 +1,21 @@
 import { z } from "zod";
 
+export const issueTypes = ["EPIC", "TASK", "STORY", "BUG", "FEATURE_REQUEST", "IMPROVEMENT", "SUBTASK"] as const;
+
 export const createTaskSchema = z.object({
   columnId: z.string(),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
+  type: z.enum(issueTypes).optional(),
+  epicId: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   assigneeId: z.string().optional(),
+  reporterId: z.string().optional(),
   dueDate: z.string().datetime().optional(),
   labelIds: z.array(z.string()).optional(),
   sprintId: z.string().optional(),
+  projectId: z.string().optional(),
+  storyPoints: z.number().int().min(0).optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial().extend({

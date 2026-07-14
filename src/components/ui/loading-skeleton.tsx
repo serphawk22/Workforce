@@ -7,11 +7,7 @@ export function LoadingSkeleton({ className = "h-4 w-full", count = 1 }: Loading
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className={`animate-pulse rounded bg-gray-200 dark:bg-gray-800 ${className}`}
-          aria-hidden="true"
-        />
+        <div key={i} className={`animate-pulse rounded bg-gray-200 ${className}`} aria-hidden="true" />
       ))}
     </>
   );
@@ -19,7 +15,7 @@ export function LoadingSkeleton({ className = "h-4 w-full", count = 1 }: Loading
 
 export function CardSkeleton() {
   return (
-    <div className="bg-white dark:bg-gray-950 rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
       <LoadingSkeleton className="h-5 w-2/3" />
       <LoadingSkeleton className="h-4 w-full" />
       <LoadingSkeleton className="h-4 w-4/5" />

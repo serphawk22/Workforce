@@ -12,6 +12,7 @@ import { PromptDialog } from "@/components/ui/prompt-dialog";
 type TaskData = {
   id: string;
   title: string;
+  issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
   dueDate: string | null;
@@ -35,9 +36,11 @@ type ColumnData = {
 export function Column({
   column,
   onTaskClick,
+  onAddTask,
 }: {
   column: ColumnData;
   onTaskClick: (task: TaskData) => void;
+  onAddTask?: (columnId: string) => void;
 }) {
   const router = useRouter();
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -103,6 +106,17 @@ export function Column({
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             </svg>
           </button>
+          {onAddTask && (
+            <button
+              onClick={() => onAddTask(column.id)}
+              className="rounded-md px-1.5 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+              title="Add Task"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

@@ -32,7 +32,7 @@ export function Modal({ open, onClose, children, title }: ModalProps) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-gray-900/40" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
         {title && (
           <div className="mb-4 flex items-center justify-between">

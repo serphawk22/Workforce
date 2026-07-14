@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
+  --background: #ffffff;
   --foreground: #111827;
   --muted: #f9fafb;
   --muted-foreground: #6b7280;
@@ -26,32 +26,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --background: #030712;
-    --foreground: #f3f4f6;
-    --muted: #111827;
-    --muted-foreground: #9ca3af;
-    --border: #1f2937;
-    --card: #111827;
-    --card-foreground: #f3f4f6;
-    --accent: #1f2937;
-    --accent-foreground: #f3f4f6;
-  }
-}
-
-html.dark {
-  --background: #030712;
-  --foreground: #f3f4f6;
-  --muted: #111827;
-  --muted-foreground: #9ca3af;
-  --border: #1f2937;
-  --card: #111827;
-  --card-foreground: #f3f4f6;
-  --accent: #1f2937;
-  --accent-foreground: #f3f4f6;
-}
-
 * {
   border-color: var(--border);
 }
@@ -66,12 +40,6 @@ body {
   background-color: rgba(0, 0, 0, 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  ::selection {
-    background-color: rgba(255, 255, 255, 0.12);
-  }
-}
-
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
@@ -80,24 +48,4 @@ a:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid #111827;
   outline-offset: 2px;
-}
-
-@media (prefers-color-scheme: dark) {
-  html:not(.light) input:focus-visible,
-  html:not(.light) select:focus-visible,
-  html:not(.light) textarea:focus-visible,
-  html:not(.light) button:focus-visible,
-  html:not(.light) a:focus-visible,
-  html:not(.light) [tabindex]:focus-visible {
-    outline-color: #60a5fa;
-  }
-}
-
-html.dark input:focus-visible,
-html.dark select:focus-visible,
-html.dark textarea:focus-visible,
-html.dark button:focus-visible,
-html.dark a:focus-visible,
-html.dark [tabindex]:focus-visible {
-  outline-color: #60a5fa;
 }

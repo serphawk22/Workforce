@@ -1,17 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { updateTask, deleteTask } from "@/actions/task";
 import { createLabel, addTaskLabel, removeTaskLabel } from "@/actions/label";
 import { getTaskDetails } from "@/actions/task-queries";
+import { getReassignmentHistory } from "@/actions/reassign";
 import { CommentSection } from "./comment-section";
+import { ReassignTaskModal } from "./reassign-task-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatDateShort } from "@/lib/dates";
+import { createSubtask, updateSubtaskStatus, getSubtacks } from "@/actions/subtask";
+import { getWorkUpdates } from "@/actions/work-update";
 
 type TaskData = {
   id: string;
   title: string;
+  issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
   dueDate: string | null;
@@ -42,6 +48,8 @@ export function TaskDetailModal({
   onTaskUpdate: (task: TaskData) => void;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
   const [task, setTask] = useState(initialTask);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
@@ -53,9 +61,16 @@ export function TaskDetailModal({
   const [loading, setLoading] = useState(false);
   const [showNewLabel, setShowNewLabel] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
   const [sprintId, setSprintId] = useState(task.sprintId || "");
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#3B82F6");
+  const [reassignmentHistory, setReassignmentHistory] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"details" | "subtasks" | "activity">("details");
+  const [subtasks, setSubtasks] = useState<any[]>([]);
+  const [workUpdates, setWorkUpdates] = useState<any[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const [detailData, setDetailData] = useState<Record<string, unknown>>({});
   const d = detailData as Record<string, string | null>;
@@ -73,6 +88,12 @@ export function TaskDetailModal({
         setDetailData(data as unknown as Record<string, unknown>);
       }
     });
+    getReassignmentHistory(task.id).then(setReassignmentHistory);
+    fetch(`/api/activity-log/${task.id}`).then(r => r.ok && r.json()).then(d => {
+      if (d?.logs) setActivityLog(d.logs);
+    });
+    getSubtacks(task.id).then(setSubtasks);
+    getWorkUpdates(task.id).then(setWorkUpdates);
   }, [task.id]);
 
   async function handleSave() {
@@ -151,9 +172,23 @@ export function TaskDetailModal({
     }
   }
 
+  async function handleCreateSubtask() {
+    if (!newSubtaskTitle.trim()) return;
+    const result = await createSubtask(task.id, newSubtaskTitle.trim());
+    if (result.subtask) {
+      setSubtasks((prev) => [...prev, { ...result.subtask, createdBy: session?.user?.name || "" }]);
+      setNewSubtaskTitle("");
+    }
+  }
+
+  async function handleUpdateSubtaskStatus(subtaskId: string, status: string) {
+    await updateSubtaskStatus(subtaskId, status);
+    setSubtasks((prev) => prev.map((s) => (s.id === subtaskId ? { ...s, status } : s)));
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-gray-900/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white shadow-xl overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -164,7 +199,9 @@ export function TaskDetailModal({
                 task.priority === "MEDIUM" ? "bg-blue-500" :
                 "bg-gray-300"
               }`} />
-              <h2 className="text-lg font-semibold text-gray-900">Task</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {task.issueKey || "Task"}
+              </h2>
             </div>
             <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -173,6 +210,43 @@ export function TaskDetailModal({
             </button>
           </div>
 
+          <div className="border-b border-gray-100 mb-6">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setActiveTab("details")}
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "details"
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Details
+              </button>
+              <button
+                onClick={() => setActiveTab("subtasks")}
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "subtasks"
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Subtasks ({subtasks.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("activity")}
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "activity"
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Activity
+              </button>
+            </div>
+          </div>
+
+          {activeTab === "details" ? (
+            <>
           {!editing ? (
             <div className="space-y-5" onClick={() => setEditing(true)}>
               <div>
@@ -257,7 +331,41 @@ export function TaskDetailModal({
                 </div>
               )}
 
-              <p className="cursor-pointer text-xs text-gray-400 transition-colors hover:text-gray-600">Click to edit...</p>
+              {reassignmentHistory.length > 0 && (
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  <p className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Reassignment History</p>
+                  <div className="space-y-3">
+                    {reassignmentHistory.map((h: any) => (
+                      <div key={h.id} className="flex items-start gap-2 text-xs">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500">
+                          <path d="M16 3h5v5" /><path d="M8 3H3v5" /><path d="M3 16v5h5" /><path d="M21 16v5h-5" /><path d="m3 3 7 7" /><path d="m21 3-7 7" /><path d="M10 14l4 4" /><path d="m14 10 4 4" />
+                        </svg>
+                        <div>
+                          <p className="text-gray-900">
+                            <span className="font-medium">{h.changedBy?.name}</span> reassigned from{' '}
+                            <span className="font-medium">{h.previousAssignee?.name || "Unassigned"}</span> to{' '}
+                            <span className="font-medium">{h.newAssignee?.name}</span>
+                          </p>
+                          {h.reason && <p className="mt-0.5 text-gray-500 italic">&ldquo;{h.reason}&rdquo;</p>}
+                          <p className="mt-0.5 text-gray-400">{formatDate(h.createdAt)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <p className="cursor-pointer text-xs text-gray-400 transition-colors hover:text-gray-600">Click to edit...</p>
+                {isAdmin && !editing && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowReassignModal(true); }}
+                    className="ml-auto rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 border border-amber-200 transition-colors hover:bg-amber-100"
+                  >
+                    Reassign
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-5">
@@ -351,9 +459,95 @@ export function TaskDetailModal({
               </div>
             </div>
           )}
+          </>
+          ) : activeTab === "subtasks" ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                {subtasks.length === 0 && <p className="text-sm text-gray-400">No subtasks yet.</p>}
+                {subtasks.map((s: any) => (
+                  <div key={s.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <select value={s.status} onChange={(e) => handleUpdateSubtaskStatus(s.id, e.target.value)} className="rounded-lg border border-gray-200 px-2 py-1 text-xs">
+                      <option value="TODO">To Do</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="REVIEW">Review</option>
+                      <option value="TESTING">Testing</option>
+                      <option value="DONE">Done</option>
+                    </select>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${s.status === "DONE" ? "line-through text-gray-400" : "text-gray-900"}`}>{s.title}</p>
+                      <p className="text-xs text-gray-400">{s.createdBy}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New subtask..." className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <button onClick={handleCreateSubtask} className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">Add</button>
+              </div>
+
+              {workUpdates.length > 0 && (
+                <div className="pt-4 border-t border-gray-100">
+                  <p className="mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Work Updates</p>
+                  <div className="space-y-3">
+                    {workUpdates.map((wu: any) => (
+                      <div key={wu.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="font-medium text-gray-900">{wu.user?.name}</span>
+                          <span className="text-xs text-gray-400">{formatDateShort(wu.createdAt)}</span>
+                          <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                            wu.status === "DONE" ? "bg-emerald-50 text-emerald-700" :
+                            wu.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>{wu.status.replace("_", " ")}</span>
+                          {wu.timeSpent > 0 && <span className="text-xs text-gray-400">{wu.timeSpent}m</span>}
+                        </div>
+                        {wu.progressNotes && <p className="text-gray-600">{wu.progressNotes}</p>}
+                        {wu.workSummary && <p className="mt-1 text-gray-500 italic">{wu.workSummary}</p>}
+                        {wu.subtask && <p className="mt-1 text-xs text-gray-400">Subtask: {wu.subtask.title}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityLog.length === 0 && (
+                <p className="text-sm text-gray-400">No activity yet.</p>
+              )}
+              {activityLog.map((log: any) => (
+                <div key={log.id} className="flex items-start gap-3 text-sm">
+                  <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-500">
+                    {log.user?.name?.charAt(0) || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900">
+                      <span className="font-medium">{log.user?.name}</span>{" "}
+                      {formatActivityAction(log)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-400">{formatDateShort(log.createdAt)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <hr className="my-6 border-gray-100" />
           <CommentSection taskId={task.id} />
+
+          {showReassignModal && (
+            <ReassignTaskModal
+              taskId={task.id}
+              taskTitle={task.title}
+              currentAssigneeId={task.assignee?.id || null}
+              members={members}
+              onClose={() => setShowReassignModal(false)}
+              onReassigned={() => {
+                getReassignmentHistory(task.id).then(setReassignmentHistory);
+                router.refresh();
+              }}
+            />
+          )}
 
           <ConfirmDialog
             open={showDeleteConfirm}
@@ -368,6 +562,27 @@ export function TaskDetailModal({
       </div>
     </div>
   );
+}
+
+function formatActivityAction(log: any): string {
+  switch (log.action) {
+    case "created":
+      return "created this task";
+    case "assigned":
+      return `assigned ${log.newValue || "someone"}`;
+    case "reassigned":
+      return `reassigned from ${log.oldValue || "Unassigned"} to ${log.newValue || "someone"}`;
+    case "status_changed":
+      return `changed status to ${log.newValue || "unknown"}`;
+    case "priority_changed":
+      return `changed priority to ${log.newValue || "unknown"}`;
+    case "updated":
+      return log.fieldName
+        ? `updated ${log.fieldName}${log.newValue ? ` to "${log.newValue}"` : ""}`
+        : "updated this task";
+    default:
+      return `${log.action}${log.newValue ? `: ${log.newValue}` : ""}`;
+  }
 }
 
 function TimelineStep({ label, date, isFirst, isLast }: { label: string; date: string | null; isFirst?: boolean; isLast?: boolean }) {

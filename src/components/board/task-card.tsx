@@ -7,6 +7,7 @@ import { formatDateShort, isOverdue } from "@/lib/dates";
 type TaskData = {
   id: string;
   title: string;
+  issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
   dueDate: string | null;
@@ -62,6 +63,9 @@ export function TaskCard({
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityDots[task.priority] || "bg-gray-300"}`} />
         <div className="min-w-0 flex-1">
+          {task.issueKey && (
+            <p className="mb-1 text-xs font-mono text-gray-400">{task.issueKey}</p>
+          )}
           <p className="text-sm font-medium text-gray-900">{task.title}</p>
 
           {task.labels.length > 0 && (

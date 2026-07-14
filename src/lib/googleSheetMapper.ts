@@ -15,6 +15,9 @@ const STATE_COLUMN_MAP: Record<string, string> = {
   open: "To Do",
   "not started": "To Do",
   backlog: "To Do",
+  pending: "To Do",
+  testing: "Testing",
+  "in testing": "Testing",
 };
 
 export interface SheetRow {

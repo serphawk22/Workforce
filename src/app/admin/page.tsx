@@ -6,6 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { QuickSyncButton } from "@/components/dashboard/quick-sync-button";
 import { formatDate, formatRelativeTime, getWeekStart } from "@/lib/dates";
 
+function getWeekEnd(date: Date): Date {
+  const end = new Date(date);
+  end.setDate(end.getDate() + (7 - end.getDay()));
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 function UsersIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -108,8 +115,11 @@ export default async function AdminDashboardPage() {
   const myPct = myTotal > 0 ? Math.round((myCompleted / myTotal) * 100) : 0;
 
   const weekStart = getWeekStart(now);
+  const weekEnd = getWeekEnd(now);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, lastSync, qaPendingCount, completedThisWeekCount, recentlyReleased] = await Promise.all([
+  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, lastSync, qaPendingCount, completedThisWeekCount, recentlyReleased, reassignedTodayCount, tasksWithoutUpdatesCount, tasksDueThisWeek, employeeWorkload, pendingWorkUpdatesCount, submittedTodayCount, overdueWorkUpdatesCount] = await Promise.all([
     prisma.user.count({ where: { role: "EMPLOYEE" } }),
     prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
     prisma.task.count(),
@@ -149,7 +159,51 @@ export default async function AdminDashboardPage() {
       orderBy: { dateOfReleaseToProd: "desc" },
       take: 10,
     }),
+    prisma.reassignmentHistory.count({
+      where: { createdAt: { gte: todayStart } },
+    }),
+    prisma.task.count({
+      where: {
+        updatedAt: { lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+        NOT: { column: { name: { in: ["Done", "Released", "Closed"] } } },
+      },
+    }),
+    prisma.task.count({
+      where: {
+        dueDate: { gte: weekStart, lte: weekEnd },
+        NOT: { column: { name: { in: ["Done", "Released", "Closed"] } } },
+      },
+    }),
+    prisma.user.findMany({
+      where: { role: "EMPLOYEE", isActive: true },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { assignedTasks: true } },
+      },
+      orderBy: { assignedTasks: { _count: "desc" } },
+    }),
+    prisma.task.count({
+      where: {
+        assigneeId: { not: null },
+        workUpdates: { none: {} },
+        NOT: { column: { name: { in: ["Done", "Released", "Closed"] } } },
+      },
+    }),
+    prisma.workUpdate.count({
+      where: { createdAt: { gte: todayStart } },
+    }),
+    prisma.task.count({
+      where: {
+        assigneeId: { not: null },
+        NOT: { column: { name: { in: ["Done", "Released", "Closed"] } } },
+        workUpdates: { some: { createdAt: { lt: sevenDaysAgo } } },
+      },
+    }),
   ]);
+
+  const highestWorkload = employeeWorkload.slice(0, 3);
+  const lowestWorkload = [...employeeWorkload].reverse().slice(0, 3).filter((e) => e._count.assignedTasks > 0);
 
   const columns = await prisma.column.findMany({
     where: { id: { in: columnStats.map((c) => c.columnId) } },
@@ -177,34 +231,34 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="mb-8 rounded-xl border border-blue-100 bg-blue-50 p-5 shadow-sm">
+      <div className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-blue-900">My Work</h2>
+          <h2 className="text-sm font-semibold text-gray-900">My Work</h2>
           <div className="flex gap-2">
-            <Link href="/my-tasks" className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700">
+            <Link href="/my-tasks" className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800">
               My Tasks
               <ArrowUpRight />
             </Link>
-            <Link href="/my-projects" className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-blue-700 border border-blue-200 transition-colors hover:bg-blue-100">
+            <Link href="/my-projects" className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 transition-colors hover:bg-gray-100">
               My Projects
               <ArrowUpRight />
             </Link>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+          <div className="rounded-lg bg-gray-50 p-3 shadow-sm border border-gray-200">
             <p className="text-xs text-gray-500">My Tasks</p>
             <p className="text-xl font-bold text-gray-900 mt-0.5">{myTotal}</p>
           </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+          <div className="rounded-lg bg-gray-50 p-3 shadow-sm border border-gray-200">
             <p className="text-xs text-gray-500">Due Today</p>
             <p className={`text-xl font-bold mt-0.5 ${myDueToday > 0 ? "text-amber-600" : "text-gray-900"}`}>{myDueToday}</p>
           </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+          <div className="rounded-lg bg-gray-50 p-3 shadow-sm border border-gray-200">
             <p className="text-xs text-gray-500">Completed</p>
             <p className="text-xl font-bold text-emerald-600 mt-0.5">{myCompleted}</p>
           </div>
-          <div className="rounded-lg bg-white p-3 shadow-sm border border-blue-100">
+          <div className="rounded-lg bg-gray-50 p-3 shadow-sm border border-gray-200">
             <p className="text-xs text-gray-500">Overdue</p>
             <p className={`text-xl font-bold mt-0.5 ${myOverdue > 0 ? "text-red-600" : "text-gray-900"}`}>{myOverdue}</p>
           </div>
@@ -212,11 +266,11 @@ export default async function AdminDashboardPage() {
         {myTotal > 0 && (
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-blue-700">Completion</span>
-              <span className="font-medium text-blue-900">{myPct}%</span>
+              <span className="text-gray-700">Completion</span>
+              <span className="font-medium text-gray-900">{myPct}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-blue-200">
-              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${myPct}%` }} />
+            <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+              <div className="h-full rounded-full bg-gray-900 transition-all" style={{ width: `${myPct}%` }} />
             </div>
           </div>
         )}
@@ -274,6 +328,85 @@ export default async function AdminDashboardPage() {
           bgAccentClass="bg-red-50"
         />
       </div>
+
+      <div className="mb-6">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Manager Dashboard</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Reassigned Today</p>
+            <p className="mt-1 text-2xl font-bold text-amber-600">{reassignedTodayCount}</p>
+            <p className="mt-0.5 text-xs text-gray-400">Tasks reassigned today</p>
+          </div>
+          <div className="rounded-xl border border-red-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Stale Tasks</p>
+            <p className="mt-1 text-2xl font-bold text-red-600">{tasksWithoutUpdatesCount}</p>
+            <p className="mt-0.5 text-xs text-gray-400">No update in 7+ days</p>
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Due This Week</p>
+            <p className="mt-1 text-2xl font-bold text-blue-600">{tasksDueThisWeek}</p>
+            <p className="mt-0.5 text-xs text-gray-400">Tasks due this week</p>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-purple-700 uppercase tracking-wide">Highest Workload</p>
+            <div className="mt-1 space-y-1">
+              {highestWorkload.map((e: any) => (
+                <div key={e.id} className="flex items-center justify-between text-xs">
+                  <Link href={`/admin/team/${e.id}`} className="font-medium text-purple-800 hover:underline truncate">
+                    {e.name}
+                  </Link>
+                  <span className="text-purple-600">{e._count.assignedTasks}</span>
+                </div>
+              ))}
+              {highestWorkload.length === 0 && <p className="text-xs text-gray-400">No data</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Work Updates</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-orange-700 uppercase tracking-wide">Pending</p>
+            <p className="mt-1 text-2xl font-bold text-orange-600">{pendingWorkUpdatesCount}</p>
+            <p className="mt-0.5 text-xs text-gray-400">Tasks never updated</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Submitted Today</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-600">{submittedTodayCount}</p>
+            <p className="mt-0.5 text-xs text-gray-400">Work updates today</p>
+          </div>
+          <div className="rounded-xl border border-red-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Overdue</p>
+            <p className="mt-1 text-2xl font-bold text-red-600">{overdueWorkUpdatesCount}</p>
+            <p className="mt-0.5 text-xs text-gray-400">No update in 7+ days</p>
+          </div>
+        </div>
+      </div>
+
+      {lowestWorkload.length > 0 && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-emerald-800">Lowest Workload</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {lowestWorkload.map((e: any) => (
+                  <Link key={e.id} href={`/admin/team/${e.id}`} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                    {e.name}
+                    <span className="text-emerald-500">({e._count.assignedTasks})</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <Link
+              href="/admin/workload"
+              className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800">
+              View Workload
+            </Link>
+          </div>
+        </div>
+      )}
 
       {unassignedCount > 0 && (
         <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 shadow-sm">

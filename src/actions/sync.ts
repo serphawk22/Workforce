@@ -51,11 +51,16 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
     const session = userId ? null : await requireAdmin();
     const defaultReporterId = userId ?? session!.user.id;
 
+    console.log(`[Sync] Starting Google Sheets sync at ${startedAt.toISOString()}`);
+    console.log(`[Sync] Default reporter: ${defaultReporterId}`);
+
     const data = await readSheet();
 
     rowsRead = data.rows.length;
+    console.log(`[Sync] Read ${rowsRead} rows from sheet (${data.headers.length} columns)`);
 
     const workspace = await findOrCreateWorkspace(defaultReporterId);
+    console.log(`[Sync] Workspace ready: "${workspace.name}" (${workspace.id})`);
 
     const projectCache = new Map<string, string>();
     const columnCache = new Map<string, string>();
@@ -69,19 +74,27 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
       count: number;
     }>();
 
+    let projectCreateCount = 0;
+
     for (const raw of data.rows) {
+      const mapped = mapRow(raw);
       try {
-        const mapped = mapRow(raw);
         if (!mapped) {
           rowsSkipped++;
           continue;
         }
 
+        const projectCacheKey = `${workspace.id}:${mapped.projectName}`;
         const projectId = await findOrCreateProject(
           workspace.id,
           mapped.projectName,
           projectCache
         );
+        if (!projectCache.has(projectCacheKey)) {
+          projectCreateCount++;
+          console.log(`[Sync] Created project: "${mapped.projectName}" (${projectId})`);
+          projectCache.set(projectCacheKey, projectId);
+        }
 
         const columnId = await findOrCreateColumn(
           projectId,
@@ -100,6 +113,15 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
 
         const assigneeId = await lookupUser(mapped.assigneeName, userCache);
         const reporterId = await lookupUser(mapped.reporterName, userCache);
+
+        if (assigneeId && mapped.assigneeName) {
+          console.log(`[Sync] Matched assignee "${mapped.assigneeName}" -> user ${assigneeId}`);
+        } else if (mapped.assigneeName) {
+          console.log(`[Sync] FAILED to match assignee "${mapped.assigneeName}"`);
+        }
+        if (reporterId && mapped.reporterName) {
+          console.log(`[Sync] Matched reporter "${mapped.reporterName}" -> user ${reporterId}`);
+        }
 
         if (!assigneeId && mapped.assigneeName) {
           unmappedOwners.add(mapped.assigneeName);
@@ -123,6 +145,12 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
           where: { sheetCode: mapped.sheetCode },
           include: { labels: true },
         });
+
+        if (existing) {
+          console.log(`[Sync] Existing task "${mapped.sheetCode}": "${mapped.title}" (${existing.id})`);
+        } else {
+          console.log(`[Sync] New task "${mapped.sheetCode}": "${mapped.title}"`);
+        }
 
         const taskData = {
           title: mapped.title,
@@ -194,7 +222,7 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
             _max: { order: true },
           });
 
-          await prisma.task.create({
+          const created = await prisma.task.create({
             data: {
               columnId,
               ...taskData,
@@ -206,11 +234,20 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
             },
           });
           rowsCreated++;
+          console.log(`[Sync] TASK CREATED: "${mapped.sheetCode}" -> "${mapped.title}" (${created.id})`);
+          if (assigneeId) {
+            console.log(`[Sync] TASK ASSIGNED: "${mapped.sheetCode}" -> user ${assigneeId}`);
+          }
         }
-      } catch {
+      } catch (err) {
         rowsFailed++;
+        const sheetCode = mapped?.sheetCode || "unknown";
+        console.error(`[Sync] FAILED row "${sheetCode}":`, err instanceof Error ? err.message : err);
       }
     }
+
+    console.log(`[Sync] Processing complete. Created: ${rowsCreated}, Updated: ${rowsUpdated}, Reassigned: ${rowsReassigned}, Skipped: ${rowsSkipped}, Failed: ${rowsFailed}`);
+    console.log(`[Sync] Unmapped owners: ${Array.from(unmappedOwners).join(", ") || "none"}`);
 
     const finishedAt = new Date();
     const durationMs = finishedAt.getTime() - startedAt.getTime();
@@ -255,6 +292,7 @@ export async function syncGoogleSheet(userId?: string): Promise<SyncResult> {
     const durationMs = finishedAt.getTime() - startedAt.getTime();
     const message =
       error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Sync] FATAL ERROR: ${message}`, error instanceof Error ? error.stack : "");
 
     await prisma.syncLog.create({
       data: {
@@ -440,6 +478,11 @@ async function lookupUser(
   });
 
   cache.set(trimmed, user?.id ?? null);
+  if (!user) {
+    console.log(`[Sync] lookupUser: NO MATCH for "${trimmed}"`);
+  } else {
+    console.log(`[Sync] lookupUser: "${trimmed}" -> "${user.email}" (${user.id})`);
+  }
   return user?.id ?? null;
 }
 

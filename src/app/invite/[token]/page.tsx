@@ -17,7 +17,7 @@ export default async function InvitePage(props: { params: Promise<{ token: strin
 
   if (!invite) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="max-w-sm rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-bold text-gray-900">Invalid Invitation</h1>
           <p className="mt-2 text-sm text-gray-500">This invitation link is invalid or has been removed.</p>
@@ -31,7 +31,7 @@ export default async function InvitePage(props: { params: Promise<{ token: strin
 
   if (invite.status !== "PENDING") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="max-w-sm rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-bold text-gray-900">Invitation {invite.status.toLowerCase()}</h1>
           <p className="mt-2 text-sm text-gray-500">This invitation has already been {invite.status.toLowerCase()}.</p>
@@ -45,7 +45,7 @@ export default async function InvitePage(props: { params: Promise<{ token: strin
 
   if (invite.expiresAt < new Date()) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="max-w-sm rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-bold text-gray-900">Invitation Expired</h1>
           <p className="mt-2 text-sm text-gray-500">This invitation expired on {invite.expiresAt.toLocaleDateString()}. Ask the workspace owner to send a new one.</p>
@@ -63,7 +63,7 @@ export default async function InvitePage(props: { params: Promise<{ token: strin
 
   if (session.user.email !== invite.email) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="max-w-sm rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-bold text-gray-900">Wrong Account</h1>
           <p className="mt-2 text-sm text-gray-500">
@@ -92,7 +92,7 @@ export default async function InvitePage(props: { params: Promise<{ token: strin
 
   if (alreadyMember) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="max-w-sm rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-lg font-bold text-gray-900">Already a Member</h1>
           <p className="mt-2 text-sm text-gray-500">You are already a member of {invite.workspace.name}.</p>

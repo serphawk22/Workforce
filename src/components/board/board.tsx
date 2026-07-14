@@ -14,11 +14,13 @@ import { Column as ColumnComponent } from "./column";
 import { addColumn } from "@/actions/column";
 import { moveTask } from "@/actions/task";
 import { TaskDetailModal } from "../task/task-detail-modal";
+import { CreateTaskModal } from "../task/create-task-modal";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
 
 type TaskData = {
   id: string;
   title: string;
+  issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
   dueDate: string | null;
@@ -67,6 +69,7 @@ export function Board({
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskData | null>(null);
   const [showColumnPrompt, setShowColumnPrompt] = useState(false);
+  const [createTaskColumnId, setCreateTaskColumnId] = useState<string | null>(null);
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
 
@@ -184,6 +187,7 @@ export function Board({
             <ColumnComponent
               column={col}
               onTaskClick={handleTaskClick}
+              onAddTask={setCreateTaskColumnId}
             />
           </div>
         ))}
@@ -222,6 +226,19 @@ export function Board({
                 ),
               }))
             );
+          }}
+        />
+      )}
+
+      {createTaskColumnId && (
+        <CreateTaskModal
+          columnId={createTaskColumnId}
+          projectId={projectId}
+          members={members}
+          labels={labels}
+          onClose={() => setCreateTaskColumnId(null)}
+          onTaskCreated={() => {
+            window.location.reload();
           }}
         />
       )}
