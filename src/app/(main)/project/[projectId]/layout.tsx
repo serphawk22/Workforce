@@ -21,8 +21,11 @@ export default async function ProjectLayout({
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <div className="mx-auto max-w-7xl px-6 py-8"><p className="text-gray-500">Project not found</p></div>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <div className="mx-auto max-w-7xl px-6 py-8"><p className="text-gray-500">Not authorized</p></div>;
   }
 
   const tabs = [

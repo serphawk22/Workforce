@@ -7,11 +7,15 @@ import { Badge } from "@/components/ui/badge";
 export default async function TeamPage() {
   const session = await requireAdmin();
 
-  const workspaces = await prisma.workspace.findMany({
-    where: { members: { some: { userId: session.user.id } } },
-  });
+  const workspaceIds = (
+    await prisma.workspace.findMany({
+      where: { members: { some: { userId: session.user.id } } },
+      select: { id: true },
+    })
+  ).map((w) => w.id);
 
   const employees = await prisma.user.findMany({
+    where: { memberships: { some: { workspaceId: { in: workspaceIds } } } },
     select: {
       id: true,
       name: true,

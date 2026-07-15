@@ -31,6 +31,7 @@ export default async function SprintPage(props: {
                   assignee: { select: { id: true, name: true } },
                   labels: { include: { label: true } },
                   comments: { select: { id: true } },
+                  subtasks: { select: { id: true, title: true, status: true, code: true }, orderBy: { createdAt: "asc" } },
                 },
               },
             },
@@ -41,8 +42,11 @@ export default async function SprintPage(props: {
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <div>Project not found</div>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <div>Not authorized</div>;
   }
 
   const board = project.boards[0];
@@ -64,22 +68,32 @@ export default async function SprintPage(props: {
   const columns = board.columns.map((col) => ({
     id: col.id,
     name: col.name,
-    tasks: col.tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      priority: t.priority,
-      assignee: t.assignee,
-      dueDate: t.dueDate?.toISOString() || null,
-      sprintId: t.sprintId,
-      labels: t.labels.map((l) => ({ id: l.label.id, name: l.label.name, color: l.label.color })),
-      commentCount: t.comments.length,
-      createdAt: t.createdAt.toISOString(),
-      dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,
-      dateOfDevComplete: t.dateOfDevComplete?.toISOString() || null,
-      dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
-      dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
-      dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
-    })),
+    tasks: col.tasks
+      .filter((t) => !t.code || !t.code.includes("_"))
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        code: t.code,
+        priority: t.priority,
+        assignee: t.assignee,
+        dueDate: t.dueDate?.toISOString() || null,
+        sprintId: t.sprintId,
+        labels: t.labels.map((l) => ({ id: l.label.id, name: l.label.name, color: l.label.color })),
+        commentCount: t.comments.length,
+        createdAt: t.createdAt.toISOString(),
+        dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,
+        dateOfDevComplete: t.dateOfDevComplete?.toISOString() || null,
+        dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
+        dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
+        dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
+        subtasks: t.subtasks.map((s) => ({
+          id: s.id,
+          title: s.title,
+          code: s.code,
+          status: s.status,
+        })),
+        completedSubtaskCount: t.subtasks.filter((s) => s.status === "DONE").length,
+      })),
   }));
 
   const priorityColors: Record<string, string> = {

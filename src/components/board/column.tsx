@@ -4,14 +4,23 @@ import { useState } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { TaskCard } from "./task-card";
+import { SubtaskCard } from "./subtask-card";
 import { renameColumn, deleteColumn } from "@/actions/column";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
 
+type SubtaskInfo = {
+  id: string;
+  title: string;
+  code: string | null;
+  status: string;
+};
+
 type TaskData = {
   id: string;
   title: string;
+  code?: string | null;
   issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
@@ -25,6 +34,8 @@ type TaskData = {
   dateOfQaOrUatStart: string | null;
   dateOfQaOrUatComplete: string | null;
   dateOfReleaseToProd: string | null;
+  subtasks: SubtaskInfo[];
+  completedSubtaskCount: number;
 };
 
 type ColumnData = {
@@ -44,6 +55,7 @@ export function Column({
 }) {
   const router = useRouter();
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [showRename, setShowRename] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -65,6 +77,10 @@ export function Column({
     } else {
       router.refresh();
     }
+  }
+
+  function toggleExpanded(taskId: string) {
+    setExpanded((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
   }
 
   const priorityColors: Record<string, string> = {
@@ -126,7 +142,38 @@ export function Column({
           strategy={verticalListSortingStrategy}
         >
           {column.tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+            <div key={task.id} className="space-y-2">
+              <TaskCard
+                task={task}
+                onClick={() => {
+                  if (task.subtasks.length > 0 && expanded[task.id] === false) {
+                    setExpanded((prev) => ({ ...prev, [task.id]: true }));
+                  }
+                  onTaskClick(task);
+                }}
+                isExpanded={expanded[task.id] !== false}
+                onToggleExpand={task.subtasks.length > 0 ? () => toggleExpanded(task.id) : undefined}
+              />
+              {task.subtasks.length > 0 && (expanded[task.id] !== false) && (
+                <SortableContext
+                  items={task.subtasks.map((s) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="ml-10 space-y-2">
+                    {task.subtasks.map((subtask, idx) => (
+                      <div key={subtask.id} className="relative">
+                        <div className={`absolute left-0 ${idx === task.subtasks.length - 1 ? "h-[14px]" : "inset-y-0"} w-px bg-gray-200`} />
+                        <div className="absolute left-0 top-[14px] w-3 h-px bg-gray-200" />
+                        <SubtaskCard
+                          subtask={subtask}
+                          onClick={() => onTaskClick(task)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </SortableContext>
+              )}
+            </div>
           ))}
         </SortableContext>
         {column.tasks.length === 0 && (

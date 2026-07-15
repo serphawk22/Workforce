@@ -28,8 +28,11 @@ export default async function ProjectListPage(props: {
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <div className="py-8 text-center text-gray-500">Project not found</div>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <div className="py-8 text-center text-gray-500">Not authorized</div>;
   }
 
   const board = project.boards[0];
@@ -44,7 +47,7 @@ export default async function ProjectListPage(props: {
       sprint: { select: { id: true, name: true, status: true } },
       labels: { include: { label: true } },
       subtasks: {
-        select: { id: true, title: true, status: true },
+        select: { id: true, title: true, status: true, code: true },
         orderBy: { createdAt: "asc" },
       },
       epic: { select: { id: true, title: true, issueKey: true } },
@@ -71,6 +74,7 @@ export default async function ProjectListPage(props: {
         id: t.id,
         title: t.title,
         issueKey: t.issueKey,
+        code: t.code,
         type: t.type,
         epicId: t.epicId,
         priority: t.priority,
@@ -79,6 +83,7 @@ export default async function ProjectListPage(props: {
         column: t.column,
         sprint: t.sprint,
         labels: t.labels.map((l) => ({ id: l.label.id, name: l.label.name, color: l.label.color })),
+        completedSubtaskCount: t.subtasks.filter((s) => s.status === "DONE").length,
         subtasks: t.subtasks,
         epic: t.epic,
         dueDate: t.dueDate?.toISOString() || null,

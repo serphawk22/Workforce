@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authorization";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { ResetPasswordButton, DisableEmployeeButton } from "../employee-actions";
+import { ResetPasswordButton, DisableEmployeeButton, AddToWorkspaceButton } from "../employee-actions";
 import { formatDate, isOverdue as checkOverdue } from "@/lib/dates";
 
 const statusColors: Record<string, string> = {
@@ -22,6 +22,9 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
   const employee = await prisma.user.findUnique({
     where: { id: employeeId },
     include: {
+      memberships: {
+        include: { workspace: { select: { id: true, name: true } } },
+      },
       assignedTasks: {
         include: {
           column: {
@@ -55,6 +58,9 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
   const projectNames = [...new Set(tasks.map((t) => t.column.board.project.name))];
   const totalTasks = tasks.length;
   const completionPct = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+
+  const workspaceMemberships = employee.memberships;
+  const isInWorkspace = workspaceMemberships.length > 0;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
@@ -90,6 +96,7 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
           </div>
           <div className="flex items-center gap-2">
             <ResetPasswordButton userId={employee.id} />
+            {!isInWorkspace && <AddToWorkspaceButton userId={employee.id} />}
             <DisableEmployeeButton userId={employee.id} isActive={employee.isActive} />
           </div>
         </div>
@@ -115,6 +122,32 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
           <p className="text-xs text-gray-500 mt-1">Overdue</p>
         </div>
       </div>
+
+      {!isInWorkspace && (
+        <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0 text-amber-600">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <p className="text-sm text-amber-800">
+              This employee is not a member of any workspace. Use <strong>Add to Workspace</strong> to grant project access.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isInWorkspace && (
+        <div className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Workspace Access</h2>
+          <div className="flex flex-wrap gap-2">
+            {workspaceMemberships.map((m) => (
+              <Badge key={m.workspaceId} variant="gray">
+                {m.workspace.name} ({m.role})
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
@@ -172,9 +205,6 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
                     />
                   )}
                 </div>
-                {t.originalOwner && t.originalOwner !== employee.name && (
-                  <p className="mt-2 text-xs text-gray-400">Originally: {t.originalOwner}</p>
-                )}
               </div>
             ))}
           </div>

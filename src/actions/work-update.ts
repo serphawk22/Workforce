@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
+import { isAdmin } from "@/lib/authorization";
 import { logActivity } from "@/lib/activity-log";
-import { syncTaskToSheet } from "@/lib/sheet-writer";
+import { generateNextTaskCode } from "@/lib/task-code";
 
 const STATUS_COLUMN_MAP: Record<string, string> = {
   TODO: "To Do",
@@ -31,10 +32,11 @@ export async function submitWorkUpdate(formData: FormData) {
   const workSummary = formData.get("workSummary") as string;
   const githubLink = formData.get("githubLink") as string;
   const productionUrl = formData.get("productionUrl") as string;
-  const timeSpent = parseInt(formData.get("timeSpent") as string) || 0;
+  const timeSpent = Math.round((parseFloat(formData.get("timeSpent") as string) || 0) * 60);
   const newTaskTitle = formData.get("newTaskTitle") as string;
   const newTaskProjectId = formData.get("newTaskProjectId") as string;
   const newTaskDescription = formData.get("newTaskDescription") as string;
+  const customCode = formData.get("customCode") as string;
 
   if (!status) return { error: "Status is required" };
 
@@ -49,6 +51,8 @@ export async function submitWorkUpdate(formData: FormData) {
 
     const todoColumn = board.columns.find((c) => c.name === "To Do") || board.columns[0];
 
+    const code = customCode?.trim() || (await generateNextTaskCode());
+
     const maxOrder = await prisma.task.aggregate({
       where: { columnId: todoColumn.id },
       _max: { order: true },
@@ -57,6 +61,8 @@ export async function submitWorkUpdate(formData: FormData) {
     const newTask = await prisma.task.create({
       data: {
         columnId: todoColumn.id,
+        code,
+        issueKey: code,
         title: newTaskTitle,
         description: newTaskDescription || null,
         reporterId: session.user.id,
@@ -68,9 +74,9 @@ export async function submitWorkUpdate(formData: FormData) {
       },
     });
 
-    const sheetStatus = STATUS_COLUMN_MAP[status] || status;
+    const columnName = STATUS_COLUMN_MAP[status] || status;
 
-    const targetColumn = board.columns.find((c) => c.name === sheetStatus);
+    const targetColumn = board.columns.find((c) => c.name === columnName);
 
     const dateField = STATUS_DATE_FIELD[status];
     const dateUpdate: Record<string, Date | null> = {};
@@ -103,7 +109,7 @@ export async function submitWorkUpdate(formData: FormData) {
     await logActivity(newTask.id, session.user.id, "work_update", {
       fieldName: "status",
       oldValue: todoColumn.name,
-      newValue: sheetStatus,
+      newValue: columnName,
       metadata: {
         subtaskId: subtaskId || undefined,
         timeSpent: String(timeSpent),
@@ -123,6 +129,7 @@ export async function submitWorkUpdate(formData: FormData) {
     include: {
       column: { include: { board: { include: { project: { include: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } } } } } } },
       assignee: { select: { id: true, name: true } },
+      _count: { select: { subtasks: true } },
     },
   });
   if (!task) return { error: "Task not found" };
@@ -131,10 +138,15 @@ export async function submitWorkUpdate(formData: FormData) {
   if (!isWorkspaceMember && !isAssignee) return { error: "Not authorized" };
   if (task.assigneeId && !isAssignee) return { error: "You can only update your own tasks" };
 
-  const sheetStatus = STATUS_COLUMN_MAP[status] || status;
+  if (!subtaskId && task._count.subtasks > 0) {
+    const admin = await isAdmin();
+    if (!admin) return { error: "Employees must select a subtask to update. Choose an existing subtask or create a new one." };
+  }
+
+  const columnName = STATUS_COLUMN_MAP[status] || status;
 
   const targetColumn = await prisma.column.findFirst({
-    where: { boardId: task.column.boardId, name: sheetStatus },
+    where: { boardId: task.column.boardId, name: columnName },
   });
 
   const dateField = STATUS_DATE_FIELD[status];
@@ -167,29 +179,10 @@ export async function submitWorkUpdate(formData: FormData) {
     },
   });
 
-  if (task.sheetCode) {
-    const today = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
-    const sheetUpdates: Record<string, string> = {
-      "current state": sheetStatus,
-    };
-    if (githubLink) sheetUpdates["github link"] = githubLink;
-    if (productionUrl) sheetUpdates["Production URL"] = productionUrl;
-    if (progressNotes) sheetUpdates["progress notes"] = progressNotes;
-    sheetUpdates["current owner"] = session.user.name || session.user.email || "Employee";
-    sheetUpdates["last updated"] = `${today} ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
-    if (dateField) {
-      if (dateField === "dateOfDevAcceptOrStart") sheetUpdates["date of dev accept or start"] = today;
-      else if (dateField === "dateOfDevComplete") sheetUpdates["date of dev complete"] = today;
-      else if (dateField === "dateOfQaOrUatStart") sheetUpdates["date of qa or uat start"] = today;
-      else if (dateField === "dateOfReleaseToProd") sheetUpdates["date of release to prod"] = today;
-    }
-    await syncTaskToSheet(task.sheetCode, sheetUpdates).catch(() => {});
-  }
-
   await logActivity(taskId, session.user.id, "work_update", {
     fieldName: "status",
     oldValue: task.column.name,
-    newValue: sheetStatus,
+    newValue: columnName,
     metadata: {
       subtaskId: subtaskId || undefined,
       timeSpent: String(timeSpent),
@@ -212,7 +205,7 @@ export async function getWorkUpdates(taskId?: string) {
       user: { select: { id: true, name: true, avatarUrl: true } },
       subtask: { select: { id: true, title: true, status: true } },
       task: {
-        select: { id: true, title: true, issueKey: true, sheetCode: true },
+        select: { id: true, title: true, issueKey: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -246,15 +239,34 @@ export async function getEmployeeProjects(userId: string) {
     distinct: ["columnId"],
   });
 
-  const projectMap = new Map<string, { id: string; name: string; key: string; tasks: { id: string; title: string; issueKey: string | null }[] }>();
+  const projectMap = new Map<string, { id: string; name: string; key: string; tasks: { id: string; title: string; code: string | null; issueKey: string | null }[] }>();
 
   for (const task of tasks) {
     const project = task.column.board.project;
     if (!projectMap.has(project.id)) {
       projectMap.set(project.id, { id: project.id, name: project.name, key: project.key, tasks: [] });
     }
-    projectMap.get(project.id)!.tasks.push({ id: task.id, title: task.title, issueKey: task.issueKey });
+    projectMap.get(project.id)!.tasks.push({ id: task.id, title: task.title, code: task.code, issueKey: task.issueKey });
   }
 
   return Array.from(projectMap.values());
+}
+
+export async function getNextCode() {
+  return await generateNextTaskCode();
+}
+
+export async function updateWorkSummary(workUpdateId: string, workSummary: string) {
+  const session = await requireAuth();
+  const update = await prisma.workUpdate.findUnique({ where: { id: workUpdateId } });
+  if (!update) return { error: "Work update not found" };
+  if (update.userId !== session.user.id) return { error: "Not authorized" };
+
+  await prisma.workUpdate.update({
+    where: { id: workUpdateId },
+    data: { workSummary: workSummary || null },
+  });
+
+  revalidatePath(`/project/[projectId]`);
+  return { success: true };
 }

@@ -19,9 +19,20 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
   const { employeeId } = await props.params;
   const session = await requireAdmin();
 
+  const workspaceIds = (
+    await prisma.workspace.findMany({
+      where: { members: { some: { userId: session.user.id } } },
+      select: { id: true },
+    })
+  ).map((w) => w.id);
+
   const employee = await prisma.user.findUnique({
     where: { id: employeeId },
     include: {
+      memberships: {
+        where: { workspaceId: { in: workspaceIds } },
+        select: { workspaceId: true },
+      },
       assignedTasks: {
         include: {
           column: {
@@ -37,10 +48,7 @@ export default async function EmployeeDetailPage(props: { params: Promise<{ empl
   });
 
   if (!employee) notFound();
-
-  const workspaces = await prisma.workspace.findMany({
-    where: { members: { some: { userId: session.user.id } } },
-  });
+  if (employee.memberships.length === 0) notFound();
 
   const now = new Date();
   const tasks = employee.assignedTasks;

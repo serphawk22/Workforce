@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { logActivity } from "@/lib/activity-log";
+import { generateNextTaskCode, generateNextSubtaskCode } from "@/lib/task-code";
 
 export async function createSubtask(taskId: string, title: string) {
   const session = await requireAuth();
@@ -15,16 +16,23 @@ export async function createSubtask(taskId: string, title: string) {
   if (!task) return { error: "Task not found" };
   if (task.column.board.project.workspace.members.length === 0) return { error: "Not authorized" };
 
+  let parentCode = task.code;
+  if (!parentCode) {
+    parentCode = await generateNextTaskCode();
+    await prisma.task.update({ where: { id: taskId }, data: { code: parentCode } });
+  }
+  const code = await generateNextSubtaskCode(parentCode);
+
   const subtask = await prisma.subtask.create({
-    data: { taskId, title, createdById: session.user.id },
+    data: { taskId, title, code, createdById: session.user.id },
   });
 
   await logActivity(taskId, session.user.id, "subtask_created", {
-    metadata: { subtaskId: subtask.id, title },
+    metadata: { subtaskId: subtask.id, title, code },
   });
 
   revalidatePath(`/project/${task.column.board.projectId}`);
-  return { subtask: { id: subtask.id, title: subtask.title, status: subtask.status, createdAt: subtask.createdAt.toISOString(), updatedAt: subtask.updatedAt.toISOString() } };
+  return { subtask: { id: subtask.id, code: subtask.code, title: subtask.title, status: subtask.status, createdAt: subtask.createdAt.toISOString(), updatedAt: subtask.updatedAt.toISOString() } };
 }
 
 export async function updateSubtaskStatus(subtaskId: string, status: string) {
@@ -61,6 +69,7 @@ export async function getSubtacks(taskId: string) {
   });
   return subtasks.map((s) => ({
     id: s.id,
+    code: s.code,
     title: s.title,
     status: s.status,
     createdBy: s.createdBy.name,

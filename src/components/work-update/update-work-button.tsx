@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { WorkUpdateForm } from "./work-update-form";
 
-type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; issueKey: string | null }[] };
+type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; code: string | null; issueKey: string | null }[] };
 
 export function UpdateWorkButton({ projects }: { projects: Project[] }) {
   const [showForm, setShowForm] = useState(false);

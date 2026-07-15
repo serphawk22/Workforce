@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authorization";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Badge } from "@/components/ui/badge";
-import { QuickSyncButton } from "@/components/dashboard/quick-sync-button";
 import { formatDate, formatRelativeTime, getWeekStart } from "@/lib/dates";
+import { AdminWorkflowActions } from "./admin-workflow-actions";
 
 function getWeekEnd(date: Date): Date {
   const end = new Date(date);
@@ -119,7 +119,7 @@ export default async function AdminDashboardPage() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, lastSync, qaPendingCount, completedThisWeekCount, recentlyReleased, reassignedTodayCount, tasksWithoutUpdatesCount, tasksDueThisWeek, employeeWorkload, pendingWorkUpdatesCount, submittedTodayCount, overdueWorkUpdatesCount] = await Promise.all([
+  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, qaPendingCount, completedThisWeekCount, recentlyReleased, reassignedTodayCount, tasksWithoutUpdatesCount, tasksDueThisWeek, employeeWorkload, pendingWorkUpdatesCount, submittedTodayCount, overdueWorkUpdatesCount, workspace, labels] = await Promise.all([
     prisma.user.count({ where: { role: "EMPLOYEE" } }),
     prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
     prisma.task.count(),
@@ -135,7 +135,6 @@ export default async function AdminDashboardPage() {
       take: 10,
     }),
     prisma.task.count({ where: { assigneeId: null } }),
-    prisma.syncLog.findFirst({ orderBy: { startedAt: "desc" } }),
     prisma.task.count({
       where: {
         column: { name: { in: ["Review"] } },
@@ -200,6 +199,13 @@ export default async function AdminDashboardPage() {
         workUpdates: { some: { createdAt: { lt: sevenDaysAgo } } },
       },
     }),
+    prisma.workspace.findFirst({
+      where: { members: { some: { userId: session.user.id } } },
+      select: { id: true, name: true },
+    }),
+    prisma.label.findMany({
+      select: { id: true, name: true, color: true },
+    }),
   ]);
 
   const highestWorkload = employeeWorkload.slice(0, 3);
@@ -220,6 +226,17 @@ export default async function AdminDashboardPage() {
 
   const overdueCount = await prisma.task.count({
     where: { dueDate: { lt: now } },
+  });
+
+  const members = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+
+  const projects = await prisma.project.findMany({
+    select: { id: true, name: true, key: true },
+    orderBy: { name: "asc" },
   });
 
   return (
@@ -274,6 +291,15 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="mb-8">
+        <AdminWorkflowActions
+          workspace={workspace}
+          members={members.map((m) => ({ id: m.id, name: m.name, email: m.email }))}
+          projects={projects}
+          labels={labels}
+        />
       </div>
 
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Organization Overview</h2>
@@ -408,27 +434,6 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
-      {unassignedCount > 0 && (
-        <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-orange-800">
-                {unassignedCount} Unassigned Task{unassignedCount !== 1 ? "s" : ""}
-              </p>
-              <p className="mt-0.5 text-xs text-orange-700">
-                These tasks have no matching employee in the system. Original owner names are stored.
-              </p>
-            </div>
-            <Link
-              href="/admin/google-sync"
-              className="rounded-lg bg-orange-800 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-orange-900"
-            >
-              Sync Sheet
-            </Link>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-base font-semibold text-gray-900">
@@ -541,12 +546,6 @@ export default async function AdminDashboardPage() {
               Team Overview
             </Link>
             <Link
-              href="/admin/google-sync"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Sync History
-            </Link>
-            <Link
               href="/dashboard"
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
@@ -561,35 +560,6 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            Google Sheets Sync
-          </h2>
-          <div className="space-y-3">
-            <QuickSyncButton />
-            {lastSync && (
-              <div className="rounded-lg bg-gray-50 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Last sync</span>
-                  <span className={`font-medium ${lastSync.error ? "text-red-600" : "text-green-600"}`}>
-                    {lastSync.error ? "Failed" : "Success"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {lastSync.startedAt.toLocaleDateString("en-US", {
-                    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                  })}
-                  {lastSync.finishedAt && ` (${Math.round((lastSync.finishedAt.getTime() - lastSync.startedAt.getTime()) / 1000)}s)`}
-                </p>
-                {!lastSync.error && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    {lastSync.rowsCreated} created &middot; {lastSync.rowsUpdated} updated &middot; {lastSync.rowsSkipped} skipped
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </main>
   );

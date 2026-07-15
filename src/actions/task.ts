@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { createTaskSchema, updateTaskSchema, moveTaskSchema } from "@/lib/schemas";
-import { syncTaskToSheet } from "@/lib/sheet-writer";
 import { logActivity } from "@/lib/activity-log";
-import { generateIssueKey } from "@/lib/issue-key";
+import { generateNextTaskCode } from "@/lib/task-code";
 
 export async function createTask(formData: FormData): Promise<{ error: Record<string, string[]>; id?: undefined } | { id: string; error?: undefined }> {
   const session = await requireAuth();
@@ -73,7 +72,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   });
   if (!member) return { error: { _form: ["Not authorized"] } };
 
-  const issueKey = await generateIssueKey(projectIdResolved);
+  const code = await generateNextTaskCode();
 
   const maxOrder = await prisma.task.aggregate({
     where: { columnId },
@@ -83,6 +82,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   const task = await prisma.task.create({
     data: {
       columnId,
+      code,
       title,
       description: description || null,
       type: type || "TASK",
@@ -93,7 +93,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
       dueDate: dueDate ? new Date(dueDate) : null,
       sprintId: sprintId || null,
       storyPoints: storyPoints ?? 0,
-      issueKey,
+      issueKey: code,
       order: (maxOrder._max.order ?? -1) + 1,
       ...(labelIds && labelIds.length > 0
         ? { labels: { create: labelIds.map((id) => ({ labelId: id })) } }
@@ -102,19 +102,19 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   });
 
   await logActivity(task.id, session.user.id, "created", {
-    metadata: { issueKey, title },
+    metadata: { issueKey: code, title },
   });
 
   if (assigneeId) {
     await logActivity(task.id, session.user.id, "assigned", {
       newValue: assigneeId,
-      metadata: { issueKey },
+      metadata: { issueKey: code },
     });
     await prisma.notification.create({
       data: {
         userId: assigneeId,
         type: "assignment",
-        title: `Assigned: ${issueKey}`,
+        title: `Assigned: #${code}`,
         message: `You have been assigned to "${title}"`,
         taskId: task.id,
       },
@@ -148,11 +148,15 @@ export async function updateTask(formData: FormData) {
   raw.sprintId = sprintField !== "" ? sprintField : null;
   const storyPtsField = formData.get("storyPoints");
   if (storyPtsField !== null && storyPtsField !== "") raw.storyPoints = parseInt(storyPtsField as string) || 0;
+  const githubLinkField = formData.get("githubLink");
+  if (githubLinkField !== null) raw.githubLink = githubLinkField;
+  const prodUrlField = formData.get("productionUrl");
+  if (prodUrlField !== null) raw.productionUrl = prodUrlField;
 
   const parsed = updateTaskSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  const { id, title, description, type, epicId, priority, assigneeId, dueDate, columnId, sprintId, storyPoints } = parsed.data;
+  const { id, title, description, type, epicId, priority, assigneeId, dueDate, columnId, sprintId, storyPoints, githubLink, productionUrl } = parsed.data;
 
   const existing = await prisma.task.findUnique({
     where: { id },
@@ -172,6 +176,8 @@ export async function updateTask(formData: FormData) {
   if (columnId !== undefined) data.columnId = columnId;
   if (sprintId !== undefined) data.sprintId = sprintId || null;
   if (storyPoints !== undefined) data.storyPoints = storyPoints;
+  if (githubLink !== undefined) data.githubLink = githubLink || null;
+  if (productionUrl !== undefined) data.productionUrl = productionUrl || null;
 
   await prisma.task.update({ where: { id }, data });
 
@@ -218,25 +224,6 @@ export async function updateTask(formData: FormData) {
       oldValue: existing.title,
       newValue: title,
     });
-  }
-
-  if (existing.sheetCode) {
-    const sheetUpdates: Record<string, string> = {};
-    if (columnId !== undefined) {
-      const newColumn = await prisma.column.findUnique({ where: { id: columnId } });
-      if (newColumn) sheetUpdates["current state"] = newColumn.name;
-    }
-    if (assigneeId !== undefined && assigneeId !== existing.assigneeId) {
-      if (assigneeId) {
-        const newAssignee = await prisma.user.findUnique({ where: { id: assigneeId }, select: { name: true, email: true } });
-        sheetUpdates["current owner"] = newAssignee?.name || newAssignee?.email || "";
-      } else {
-        sheetUpdates["current owner"] = "";
-      }
-    }
-    if (Object.keys(sheetUpdates).length > 0) {
-      await syncTaskToSheet(existing.sheetCode, sheetUpdates).catch(() => {});
-    }
   }
 
   revalidatePath(`/project/${existing.column.board.projectId}`);
@@ -291,10 +278,6 @@ export async function moveTask(formData: FormData) {
       });
     }
   });
-
-  if (task.sheetCode && newColumnName) {
-    await syncTaskToSheet(task.sheetCode, { "current state": newColumnName }).catch(() => {});
-  }
 
   await logActivity(task.id, session.user.id, "status_changed", {
     fieldName: "columnId",

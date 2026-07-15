@@ -4,9 +4,17 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatDateShort, isOverdue } from "@/lib/dates";
 
+type SubtaskInfo = {
+  id: string;
+  title: string;
+  code: string | null;
+  status: string;
+};
+
 type TaskData = {
   id: string;
   title: string;
+  code?: string | null;
   issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
@@ -20,14 +28,20 @@ type TaskData = {
   dateOfQaOrUatStart: string | null;
   dateOfQaOrUatComplete: string | null;
   dateOfReleaseToProd: string | null;
+  subtasks: SubtaskInfo[];
+  completedSubtaskCount: number;
 };
 
 export function TaskCard({
   task,
   onClick,
+  isExpanded,
+  onToggleExpand,
 }: {
   task: TaskData;
   onClick: () => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }) {
   const {
     attributes,
@@ -44,12 +58,90 @@ export function TaskCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isParent = task.subtasks.length > 0;
+
+  const priorityStripes: Record<string, string> = {
+    LOW: "border-l-gray-300",
+    MEDIUM: "border-l-blue-500",
+    HIGH: "border-l-orange-500",
+    CRITICAL: "border-l-red-500",
+  };
+
   const priorityDots: Record<string, string> = {
     LOW: "bg-gray-300",
     MEDIUM: "bg-blue-500",
     HIGH: "bg-orange-500",
     CRITICAL: "bg-red-500",
   };
+
+  if (isParent) {
+    const pct = Math.round((task.completedSubtaskCount / task.subtasks.length) * 100);
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className="cursor-grab rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-150 hover:shadow-md active:cursor-grabbing"
+      >
+        <div className={`rounded-t-xl border-l-[3px] ${priorityStripes[task.priority] || "border-l-gray-300"}`}>
+          <div className="p-4">
+            <div className="flex items-start gap-2">
+              {onToggleExpand && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="mt-0.5 shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  {task.code && (
+                    <span className="text-xs font-mono text-gray-400">#{task.code}</span>
+                  )}
+                  <p className="text-sm font-semibold text-gray-900">{task.title}</p>
+                </div>
+
+                <div className="mt-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 flex-1 rounded-full bg-gray-100">
+                      <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">{task.completedSubtaskCount}/{task.subtasks.length} ({pct}%)</span>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                  {task.assignee && (
+                    <span className="flex items-center gap-1">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                      </svg>
+                      {task.assignee.name}
+                    </span>
+                  )}
+                  {task.dueDate && (
+                    <span className={`flex items-center gap-1 ${isOverdue(task.dueDate) ? "font-medium text-red-500" : ""}`}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {formatDateShort(task.dueDate)}
+                    </span>
+                  )}
+                  <span className="text-gray-400">{task.subtasks.length} subtask{task.subtasks.length !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -63,8 +155,8 @@ export function TaskCard({
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityDots[task.priority] || "bg-gray-300"}`} />
         <div className="min-w-0 flex-1">
-          {task.issueKey && (
-            <p className="mb-1 text-xs font-mono text-gray-400">{task.issueKey}</p>
+          {task.code && (
+            <p className="mb-1 text-xs font-mono text-gray-400">#{task.code}</p>
           )}
           <p className="text-sm font-medium text-gray-900">{task.title}</p>
 

@@ -15,8 +15,11 @@ export default async function ProjectAttachmentsPage({ params }: { params: Promi
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <p className="text-gray-500 text-center py-8">Project not found</p>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <p className="text-gray-500 text-center py-8">Not authorized</p>;
   }
 
   const attachments = await prisma.attachment.findMany({
@@ -26,7 +29,7 @@ export default async function ProjectAttachmentsPage({ params }: { params: Promi
       },
     },
     include: {
-      task: { select: { id: true, title: true, issueKey: true } },
+      task: { select: { id: true, title: true, issueKey: true, code: true } },
       uploadedBy: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -60,7 +63,7 @@ export default async function ProjectAttachmentsPage({ params }: { params: Promi
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 truncate">{a.fileName}</p>
                 <p className="text-xs text-gray-500">
-                  {a.task.issueKey ? `${a.task.issueKey} - ` : ""}{a.task.title}
+                  {a.task.code ? `#${a.task.code} - ` : (a.task.issueKey ? `${a.task.issueKey} - ` : "")}{a.task.title}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {a.fileType} &middot; {a.fileSize > 1024 ? `${(a.fileSize / 1024).toFixed(1)} KB` : `${a.fileSize} B`}

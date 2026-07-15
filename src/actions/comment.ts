@@ -17,9 +17,28 @@ export async function addComment(formData: FormData) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: {
+      column: {
+        include: {
+          board: {
+            include: {
+              project: {
+                select: {
+                  workspace: {
+                    select: { members: { where: { userId: session.user.id }, select: { id: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!task) return { error: { _form: ["Task not found"] } };
+  if (task.column.board.project.workspace.members.length === 0) {
+    return { error: { _form: ["Not authorized"] } };
+  }
 
   await prisma.comment.create({
     data: { taskId, authorId: session.user.id, content },

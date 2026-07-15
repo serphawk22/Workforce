@@ -141,9 +141,8 @@ model Task {
   sprintId    String?
   issueKey    String?
   storyPoints Int       @default(0)
-  sheetCode       String?   @unique
-  originalOwner   String?
-  category        String?
+  code        String?   @unique
+  category    String?
   githubLink      String?
   productionUrl   String?
   dateOfDevAcceptOrStart  DateTime?
@@ -171,18 +170,6 @@ model Task {
   workUpdates   WorkUpdate[]
 }
 
-model SyncLog {
-  id             String   @id @default(cuid())
-  startedAt      DateTime
-  finishedAt     DateTime?
-  rowsRead       Int      @default(0)
-  rowsCreated    Int      @default(0)
-  rowsUpdated    Int      @default(0)
-  rowsReassigned Int      @default(0)
-  rowsSkipped    Int      @default(0)
-  rowsFailed     Int      @default(0)
-  error          String?
-}
 
 model Label {
   id        String @id @default(cuid())
@@ -280,6 +267,7 @@ model Subtask {
   id        String   @id @default(cuid())
   taskId    String
   title     String
+  code      String?  @unique
   status    String   @default("TODO") // TODO, IN_PROGRESS, REVIEW, TESTING, DONE
   createdById String
   createdAt DateTime @default(now())

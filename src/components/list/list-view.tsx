@@ -11,6 +11,7 @@ type ListTask = {
   id: string;
   title: string;
   issueKey: string | null;
+  code: string | null;
   type: string;
   epicId: string | null;
   priority: string;
@@ -19,7 +20,8 @@ type ListTask = {
   column: { id: string; name: string };
   sprint: { id: string; name: string; status: string } | null;
   labels: { id: string; name: string; color: string }[];
-  subtasks: { id: string; title: string; status: string }[];
+  subtasks: { id: string; title: string; status: string; code: string | null }[];
+  completedSubtaskCount: number;
   epic: { id: string; title: string; issueKey: string | null } | null;
   dueDate: string | null;
   createdAt: string;
@@ -141,7 +143,7 @@ export function ListView({
 
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((t) => t.title.toLowerCase().includes(q) || (t.issueKey && t.issueKey.toLowerCase().includes(q)));
+      list = list.filter((t) => t.title.toLowerCase().includes(q) || (t.issueKey && t.issueKey.toLowerCase().includes(q)) || (t.code && t.code.toLowerCase().includes(q)));
     }
     if (statusFilter) list = list.filter((t) => t.column.name === statusFilter);
     if (priorityFilter) list = list.filter((t) => t.priority === priorityFilter);
@@ -381,7 +383,7 @@ export function ListView({
             </div>
           </td>
           <td className="px-3 py-2.5">
-            <span className="text-xs font-mono text-gray-400">{t.issueKey || "—"}</span>
+            <span className="text-xs font-mono text-gray-400">{t.code ? `#${t.code}` : t.issueKey || "—"}</span>
           </td>
           <td className="px-3 py-2.5 max-w-[250px]">
             <div className="truncate text-sm font-medium text-gray-900">
@@ -446,21 +448,49 @@ export function ListView({
               )}
             </div>
           </td>
+          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-400">
+            {t.subtasks.length > 0 && (
+              <span className="font-medium text-gray-600">{t.completedSubtaskCount}/{t.subtasks.length}</span>
+            )}
+          </td>
+          <td className="px-3 py-2.5 whitespace-nowrap" style={{ minWidth: "80px" }}>
+            {t.subtasks.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <div className="h-1.5 w-16 rounded-full bg-gray-200">
+                  <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${(t.completedSubtaskCount / t.subtasks.length) * 100}%` }} />
+                </div>
+                <span className="text-xs text-gray-400">{Math.round((t.completedSubtaskCount / t.subtasks.length) * 100)}%</span>
+              </div>
+            )}
+          </td>
         </tr>
         {showSubtasks && t.subtasks.map((st) => (
           <tr key={`sub-${st.id}`} className="border-b border-gray-50 bg-gray-50/50 text-xs">
             <td className="px-3 py-2" />
-            <td className="px-3 py-2 text-gray-400" style={{ paddingLeft: `${16 + (depth + 1) * 24}px` }}>
-              <span className="text-[10px]">⁝</span>
+            <td className="px-3 py-2" style={{ paddingLeft: `${16 + (depth + 1) * 24}px` }}>
+              <span className="text-[10px] text-gray-400">⁝</span>
             </td>
+            <td className="px-3 py-2">
+              <span className="font-mono text-gray-500">{st.code ? `#${st.code}` : "—"}</span>
+            </td>
+            <td className="px-3 py-2 text-gray-700 font-medium">{st.title}</td>
             <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-600">{st.title}</td>
-            <td className="px-3 py-2 text-gray-400" colSpan={11}>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2">
               <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
                 st.status === "DONE" ? "bg-emerald-50 text-emerald-600" :
                 st.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
               }`}>{st.status.replace("_", " ")}</span>
             </td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
+            <td className="px-3 py-2 text-gray-400">—</td>
           </tr>
         ))}
         {hasChildren && isExpanded && children.map((child) => renderRow(child, depth + 1))}
@@ -581,7 +611,7 @@ export function ListView({
                 />
               </th>
               <th className="w-8 px-3 py-3" />
-              <SortHeader label="Key" sortKey="issueKey" />
+              <SortHeader label="Code" sortKey="issueKey" />
               <SortHeader label="Title" sortKey="title" />
               <SortHeader label="Assignee" sortKey="assignee" />
               <SortHeader label="Reporter" sortKey="reporter" />
@@ -594,6 +624,8 @@ export function ListView({
               <SortHeader label="Due Date" sortKey="dueDate" />
               <SortHeader label="Points" sortKey="storyPoints" />
               <th className="w-16 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Links</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtasks</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
             </tr>
           </thead>
 
@@ -603,7 +635,7 @@ export function ListView({
                 <td className="px-3 py-2" />
                 <td className="px-3 py-2 text-xs text-blue-400">+</td>
                 <td className="px-3 py-2" />
-                <td className="px-3 py-2" colSpan={12}>
+                <td className="px-3 py-2" colSpan={14}>
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
                       {quickCreateType.replace("_", " ")}

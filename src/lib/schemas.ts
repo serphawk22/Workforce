@@ -16,6 +16,8 @@ export const createTaskSchema = z.object({
   sprintId: z.string().optional(),
   projectId: z.string().optional(),
   storyPoints: z.number().int().min(0).optional(),
+  githubLink: z.string().optional(),
+  productionUrl: z.string().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial().extend({

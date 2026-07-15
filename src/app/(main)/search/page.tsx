@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const session = await requireSetup();
   const { q } = await searchParams;
   const query = q?.trim() || "";
+
+  const codeMatch = /^\d+$/.test(query) ? [{ code: { contains: query } }] : [];
 
   const tasks = query
     ? await prisma.task.findMany({
@@ -14,7 +15,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           OR: [
             { title: { contains: query } },
             { issueKey: { contains: query } },
-            { sheetCode: { contains: query } },
+
+            ...codeMatch,
           ],
           column: {
             board: {
@@ -34,6 +36,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             },
           },
           assignee: { select: { name: true } },
+          subtasks: {
+            select: { id: true, title: true, status: true, code: true },
+            orderBy: { createdAt: "asc" },
+          },
         },
         take: 20,
       })
@@ -108,28 +114,52 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Issues ({tasks.length})</h2>
               <div className="space-y-1">
                 {tasks.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/project/${t.column.board.project.id}`}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
-                  >
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${
-                      t.priority === "CRITICAL" ? "bg-red-500" :
-                      t.priority === "HIGH" ? "bg-orange-500" :
-                      t.priority === "MEDIUM" ? "bg-blue-500" :
-                      "bg-gray-400"
-                    }`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {t.issueKey ? <span className="text-gray-400">{t.issueKey} </span> : null}
-                        {t.title}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t.column.board.project.name} &middot; {t.column.name}
-                        {t.assignee ? <span> &middot; {t.assignee.name}</span> : null}
-                      </p>
-                    </div>
-                  </Link>
+                  <div key={t.id}>
+                    <Link
+                      href={`/project/${t.column.board.project.id}`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
+                    >
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${
+                        t.priority === "CRITICAL" ? "bg-red-500" :
+                        t.priority === "HIGH" ? "bg-orange-500" :
+                        t.priority === "MEDIUM" ? "bg-blue-500" :
+                        "bg-gray-400"
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {t.code ? <span className="text-gray-400">#{t.code} </span> : (t.issueKey ? <span className="text-gray-400">{t.issueKey} </span> : null)}
+                          {t.title}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {t.column.board.project.name} &middot; {t.column.name}
+                          {t.assignee ? <span> &middot; {t.assignee.name}</span> : null}
+                          {t.subtasks.length > 0 && <span> &middot; {t.subtasks.filter(s => s.status === "DONE").length}/{t.subtasks.length} subtasks</span>}
+                        </p>
+                      </div>
+                    </Link>
+                    {t.subtasks.length > 0 && (
+                      <div className="ml-8 border-l-2 border-gray-100 pl-4 space-y-0.5">
+                        {t.subtasks.map((st) => (
+                          <Link
+                            key={st.id}
+                            href={`/project/${t.column.board.project.id}`}
+                            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors hover:bg-gray-50"
+                          >
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                              st.status === "DONE" ? "bg-emerald-400" :
+                              st.status === "IN_PROGRESS" ? "bg-blue-400" : "bg-gray-300"
+                            }`} />
+                            {st.code && <span className="font-mono text-gray-400">#{st.code}</span>}
+                            <span className="text-gray-600">{st.title}</span>
+                            <span className={`inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium ${
+                              st.status === "DONE" ? "bg-emerald-50 text-emerald-600" :
+                              st.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
+                            }`}>{st.status.replace("_", " ")}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

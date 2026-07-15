@@ -17,9 +17,17 @@ import { TaskDetailModal } from "../task/task-detail-modal";
 import { CreateTaskModal } from "../task/create-task-modal";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
 
+type SubtaskInfo = {
+  id: string;
+  title: string;
+  code: string | null;
+  status: string;
+};
+
 type TaskData = {
   id: string;
   title: string;
+  code?: string | null;
   issueKey?: string | null;
   priority: string;
   assignee: { id: string; name: string } | null;
@@ -33,6 +41,8 @@ type TaskData = {
   dateOfQaOrUatStart: string | null;
   dateOfQaOrUatComplete: string | null;
   dateOfReleaseToProd: string | null;
+  subtasks: SubtaskInfo[];
+  completedSubtaskCount: number;
 };
 
 type SprintItem = {
@@ -77,14 +87,37 @@ export function Board({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  const activeTask = useMemo(() => {
+  const subtaskParentMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const col of columns) {
+      for (const task of col.tasks) {
+        for (const sub of task.subtasks) {
+          map[sub.id] = task.id;
+        }
+      }
+    }
+    return map;
+  }, [columns]);
+
+  const activeItem = useMemo(() => {
     if (!activeTaskId) return null;
     for (const col of columns) {
       const task = col.tasks.find((t) => t.id === activeTaskId);
-      if (task) return task;
+      if (task) return { type: "task" as const, title: task.title, subtaskCount: task.subtasks.length };
+    }
+    const parentId = subtaskParentMap[activeTaskId];
+    if (parentId) {
+      for (const col of columns) {
+        for (const task of col.tasks) {
+          if (task.id === parentId) {
+            const sub = task.subtasks.find((s) => s.id === activeTaskId);
+            if (sub) return { type: "subtask" as const, title: sub.title, subtaskCount: 0 };
+          }
+        }
+      }
     }
     return null;
-  }, [activeTaskId, columns]);
+  }, [activeTaskId, columns, subtaskParentMap]);
 
   function findColumnByTaskId(taskId: string) {
     return columns.find((col) => col.tasks.some((t) => t.id === taskId));
@@ -100,12 +133,43 @@ export function Board({
 
     if (!over || active.id === over.id) return;
 
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const isSubtask = subtaskParentMap[activeId] !== undefined;
+
+    if (isSubtask) {
+      const parentTaskId = subtaskParentMap[activeId];
+      const isOverSubtask = subtaskParentMap[overId] !== undefined;
+      const isSameParent = isOverSubtask && subtaskParentMap[overId] === parentTaskId;
+      if (!isSameParent) return;
+
+      const snapshot = columnsRef.current.map((c) => ({ ...c, tasks: [...c.tasks.map((t) => ({ ...t, subtasks: [...t.subtasks] }))] }));
+
+      const newColumns = columns.map((col) => ({
+        ...col,
+        tasks: col.tasks.map((task) => {
+          if (task.id !== parentTaskId) return task;
+          const subs = [...task.subtasks];
+          const fromIdx = subs.findIndex((s) => s.id === activeId);
+          const toIdx = subs.findIndex((s) => s.id === overId);
+          if (fromIdx === -1 || toIdx === -1) return task;
+          const [moved] = subs.splice(fromIdx, 1);
+          subs.splice(toIdx, 0, moved);
+          return { ...task, subtasks: subs };
+        }),
+      }));
+
+      setColumns(newColumns);
+      return;
+    }
+
     const snapshot = columnsRef.current.map((c) => ({ ...c, tasks: [...c.tasks] }));
 
-    const activeCol = findColumnByTaskId(active.id as string);
+    const activeCol = findColumnByTaskId(activeId);
     const overCol =
-      findColumnByTaskId(over.id as string) ||
-      columns.find((c) => c.id === over.id);
+      findColumnByTaskId(overId) ||
+      columns.find((c) => c.id === overId);
 
     if (!activeCol || !overCol) return;
 
@@ -114,7 +178,7 @@ export function Board({
     if (!sourceCol || !destCol) return;
 
     const sourceTasks = [...sourceCol.tasks];
-    const activeIndex = sourceTasks.findIndex((t) => t.id === active.id);
+    const activeIndex = sourceTasks.findIndex((t) => t.id === activeId);
     if (activeIndex === -1) return;
 
     const [movedTask] = sourceTasks.splice(activeIndex, 1);
@@ -123,13 +187,13 @@ export function Board({
     let newOrder: number;
 
     if (activeCol.id === overCol.id) {
-      const overIndex = sourceTasks.findIndex((t) => t.id === over.id);
+      const overIndex = sourceTasks.findIndex((t) => t.id === overId);
       sourceTasks.splice(overIndex >= 0 ? overIndex : sourceTasks.length, 0, movedTask);
       destTasks = sourceTasks;
       newOrder = overIndex >= 0 ? overIndex : sourceTasks.length - 1;
     } else {
       destTasks = [...destCol.tasks];
-      const overIndex = destTasks.findIndex((t) => t.id === over.id);
+      const overIndex = destTasks.findIndex((t) => t.id === overId);
       if (overIndex >= 0) {
         destTasks.splice(overIndex, 0, movedTask);
       } else {
@@ -147,7 +211,7 @@ export function Board({
     setColumns(newColumns);
 
     const formData = new FormData();
-    formData.set("taskId", active.id as string);
+    formData.set("taskId", activeId);
     formData.set("newColumnId", destCol.id);
     formData.set("newOrder", String(newOrder));
 
@@ -202,9 +266,15 @@ export function Board({
       </div>
 
       <DragOverlay>
-        {activeTask ? (
+        {activeItem ? (
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-xl w-72">
-            <p className="text-sm font-medium text-gray-900">{activeTask.title}</p>
+            <p className="text-sm font-medium text-gray-900">{activeItem.title}</p>
+            {activeItem.type === "task" && activeItem.subtaskCount > 0 && (
+              <p className="mt-1 text-xs text-gray-400">{activeItem.subtaskCount} subtask{activeItem.subtaskCount !== 1 ? "s" : ""}</p>
+            )}
+            {activeItem.type === "subtask" && (
+              <p className="mt-1 text-xs text-gray-400">Subtask</p>
+            )}
           </div>
         ) : null}
       </DragOverlay>

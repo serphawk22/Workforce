@@ -15,8 +15,11 @@ export default async function ProjectTimelinePage({ params }: { params: Promise<
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <p className="text-gray-500 text-center py-8">Project not found</p>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <p className="text-gray-500 text-center py-8">Not authorized</p>;
   }
 
   const tasks = await prisma.task.findMany({

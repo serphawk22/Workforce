@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { disableEmployee, enableEmployee, resetEmployeePassword } from "@/actions/admin-employees";
+import { disableEmployee, enableEmployee, resetEmployeePassword, addEmployeeToWorkspace } from "@/actions/admin-employees";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -77,6 +77,41 @@ export function ResetPasswordButton({ userId }: { userId: string }) {
         </div>
       </Modal>
     </>
+  );
+}
+
+export function AddToWorkspaceButton({ userId }: { userId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    const result = await addEmployeeToWorkspace(userId);
+    if (result?.error) {
+      setError(result.error);
+    } else if (result?.success) {
+      setSuccess(`Added to ${result.workspaceName}`);
+      router.refresh();
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div>
+      <button
+        onClick={handleAdd}
+        disabled={loading}
+        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+      >
+        {loading ? "Adding..." : "Add to Workspace"}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {success && <p className="mt-1 text-xs text-emerald-600">{success}</p>}
+    </div>
   );
 }
 

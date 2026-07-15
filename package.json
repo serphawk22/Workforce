@@ -20,7 +20,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
-    "googleapis": "^173.0.0",
     "next": "16.2.10",
     "next-auth": "^4.24.14",
     "react": "19.2.4",

@@ -45,6 +45,25 @@ export async function createEmployee(prevState: unknown, formData: FormData) {
     },
   });
 
+  const adminWorkspace = await prisma.workspace.findFirst({
+    where: { members: { some: { userId: (await requireAdmin()).user.id } } },
+    select: { id: true },
+  });
+
+  if (adminWorkspace) {
+    const newUser = await prisma.user.findUnique({ where: { email } });
+    if (newUser) {
+      const existingMember = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId: newUser.id, workspaceId: adminWorkspace.id } },
+      });
+      if (!existingMember) {
+        await prisma.workspaceMember.create({
+          data: { userId: newUser.id, workspaceId: adminWorkspace.id, role: "MEMBER" },
+        });
+      }
+    }
+  }
+
   revalidatePath("/admin/team");
   return { success: true, tempPassword };
 }
@@ -64,6 +83,32 @@ export async function disableEmployee(userId: string) {
   revalidatePath("/admin/team");
   revalidatePath(`/admin/team/${userId}`);
   return { success: true };
+}
+
+export async function addEmployeeToWorkspace(userId: string) {
+  const session = await requireAdmin();
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { error: "User not found" };
+
+  const workspace = await prisma.workspace.findFirst({
+    where: { members: { some: { userId: session.user.id } } },
+    select: { id: true, name: true },
+  });
+  if (!workspace) return { error: "No workspace found" };
+
+  const existing = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId, workspaceId: workspace.id } },
+  });
+  if (existing) return { error: `Already a member of ${workspace.name}` };
+
+  await prisma.workspaceMember.create({
+    data: { userId, workspaceId: workspace.id, role: "MEMBER" },
+  });
+
+  revalidatePath("/admin/team");
+  revalidatePath(`/admin/team/${userId}`);
+  return { success: true, workspaceName: workspace.name };
 }
 
 export async function enableEmployee(userId: string) {

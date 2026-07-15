@@ -1,15 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authorization";
 import { WorkUpdatesTable } from "./work-updates-table";
-import { TasksAwaitingTable } from "./tasks-awaiting-table";
 
-type UpdateRow = {
+type WorkUpdateInfo = {
   id: string;
-  taskId: string;
   userId: string;
-  subtaskId: string | null;
   status: string;
-  taskStatus: string;
   progressNotes: string | null;
   workSummary: string | null;
   githubLink: string | null;
@@ -18,56 +14,61 @@ type UpdateRow = {
   createdAt: string;
   updatedAt: string | null;
   user: { id: string; name: string };
-  subtask: { id: string; title: string; status: string } | null;
-  task: {
-    id: string;
-    title: string;
-    issueKey: string | null;
-    sheetCode: string | null;
-    column: { name: string; board: { project: { id: string; name: string; key: string } } };
-  };
 };
 
-type AwaitingRow = {
+export type SubtaskRow = {
   id: string;
-  taskId: string;
-  employeeId: string;
-  employeeName: string;
+  code: string | null;
+  title: string;
+  status: string;
+  workUpdate: WorkUpdateInfo | null;
+};
+
+export type TaskRow = {
+  id: string;
+  code: string | null;
+  title: string;
+  columnName: string;
+  projectId: string;
   projectName: string;
   projectKey: string;
-  taskTitle: string;
-  issueKey: string | null;
-  currentStatus: string;
-  assignedDate: string;
-  dueDate: string | null;
+  assigneeName: string | null;
+  subtasks: SubtaskRow[];
+  lastUpdated: string;
+  isAwaiting: boolean;
 };
 
 export default async function AdminWorkUpdatesPage() {
   const session = await requireAdmin();
 
-  const [updates, employees] = await Promise.all([
-    prisma.workUpdate.findMany({
+  const [tasksWithUpdates, tasksAwaiting, employees] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        OR: [
+          { workUpdates: { some: {} } },
+          { subtasks: { some: { workUpdates: { some: {} } } } },
+        ],
+      },
       include: {
-        user: { select: { id: true, name: true } },
-        subtask: { select: { id: true, title: true, status: true } },
-        task: {
-          select: {
-            id: true,
-            title: true,
-            issueKey: true,
-            sheetCode: true,
-            column: {
-              select: {
-                name: true,
-                board: {
-                  select: {
-                    project: { select: { id: true, name: true, key: true } },
-                  },
-                },
-              },
-            },
+        assignee: { select: { id: true, name: true } },
+        column: { select: { name: true, board: { select: { project: { select: { id: true, name: true, key: true } } } } } },
+        subtasks: {
+          include: {
+            workUpdates: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
           },
+          orderBy: { createdAt: "asc" },
         },
+        workUpdates: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
+    prisma.task.findMany({
+      where: { assigneeId: { not: null }, workUpdates: { none: {} }, subtasks: { none: { workUpdates: { some: {} } } } },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        column: { select: { name: true, board: { select: { project: { select: { id: true, name: true, key: true } } } } } },
+        subtasks: { select: { id: true, code: true, title: true, status: true }, orderBy: { createdAt: "asc" } },
       },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -79,79 +80,87 @@ export default async function AdminWorkUpdatesPage() {
     }),
   ]);
 
-  const tasksAwaiting = await prisma.task.findMany({
-    where: {
-      assigneeId: { not: null },
-      workUpdates: { none: {} },
-      column: {
-        board: {
-          project: {
-            workspace: {
-              members: { some: { userId: session.user.id } },
-            },
-          },
-        },
-      },
-    },
-    include: {
-      assignee: { select: { id: true, name: true } },
-      column: {
-        select: { name: true, board: { select: { project: { select: { id: true, name: true, key: true } } } } },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 500,
-  });
+  function pickWorkUpdateInfo(wu: { id: string; userId: string; status: string; progressNotes: string | null; workSummary: string | null; githubLink: string | null; productionUrl: string | null; timeSpent: number; createdAt: Date; updatedAt: Date | null; user: { id: string; name: string } } | undefined): WorkUpdateInfo | null {
+    if (!wu) return null;
+    return {
+      id: wu.id,
+      userId: wu.userId,
+      status: wu.status,
+      progressNotes: wu.progressNotes,
+      workSummary: wu.workSummary,
+      githubLink: wu.githubLink,
+      productionUrl: wu.productionUrl,
+      timeSpent: wu.timeSpent,
+      createdAt: wu.createdAt.toISOString(),
+      updatedAt: wu.updatedAt?.toISOString() ?? wu.createdAt.toISOString(),
+      user: wu.user,
+    };
+  }
 
-  const serializedUpdates: UpdateRow[] = updates.map((u) => ({
-    id: u.id,
-    taskId: u.taskId,
-    userId: u.userId,
-    subtaskId: u.subtaskId,
-    status: u.status,
-    taskStatus: u.task.column.name,
-    progressNotes: u.progressNotes,
-    workSummary: u.workSummary,
-    githubLink: u.githubLink,
-    productionUrl: u.productionUrl,
-    timeSpent: u.timeSpent,
-    createdAt: u.createdAt.toISOString(),
-    updatedAt: u.updatedAt?.toISOString() ?? u.createdAt.toISOString(),
-    user: u.user,
-    subtask: u.subtask,
-    task: u.task,
-  }));
+  const serialized: TaskRow[] = [
+    ...tasksWithUpdates.map((t) => {
+      const lastWu = t.workUpdates[0];
+      const subtaskLatest = t.subtasks
+        .map((s) => s.workUpdates[0])
+        .filter(Boolean)
+        .sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
+      const lastUpdated = [lastWu, subtaskLatest].filter(Boolean).sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
+      return {
+        id: t.id,
+        code: t.code,
+        title: t.title,
+        columnName: t.column.name,
+        projectId: t.column.board.project.id,
+        projectName: t.column.board.project.name,
+        projectKey: t.column.board.project.key,
+        assigneeName: t.assignee?.name ?? null,
+        subtasks: t.subtasks.map((s) => ({
+          id: s.id,
+          code: s.code,
+          title: s.title,
+          status: s.status,
+          workUpdate: pickWorkUpdateInfo(s.workUpdates[0]),
+        })),
+        lastUpdated: lastUpdated?.createdAt.toISOString() ?? t.createdAt.toISOString(),
+        isAwaiting: false,
+      };
+    }),
+    ...tasksAwaiting.map((t) => ({
+      id: t.id,
+      code: t.code,
+      title: t.title,
+      columnName: t.column.name,
+      projectId: t.column.board.project.id,
+      projectName: t.column.board.project.name,
+      projectKey: t.column.board.project.key,
+      assigneeName: t.assignee?.name ?? null,
+      subtasks: t.subtasks.map((s) => ({
+        id: s.id,
+        code: s.code,
+        title: s.title,
+        status: s.status,
+        workUpdate: null as WorkUpdateInfo | null,
+      })),
+      lastUpdated: t.createdAt.toISOString(),
+      isAwaiting: true,
+    })),
+  ];
 
-  const serializedAwaiting: AwaitingRow[] = tasksAwaiting.map((t) => ({
-    id: `awaiting-${t.id}`,
-    taskId: t.id,
-    employeeId: t.assignee!.id,
-    employeeName: t.assignee!.name,
-    projectName: t.column.board.project.name,
-    projectKey: t.column.board.project.key,
-    taskTitle: t.title,
-    issueKey: t.issueKey,
-    currentStatus: t.column.name,
-    assignedDate: t.createdAt.toISOString(),
-    dueDate: t.dueDate?.toISOString() ?? null,
-  }));
+  const totalUpdates = tasksWithUpdates.reduce(
+    (sum, t) => sum + t.workUpdates.length + t.subtasks.reduce((s, st) => s + st.workUpdates.length, 0),
+    0,
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Work Updates</h1>
         <p className="mt-1 text-sm text-gray-500">
-          {updates.length} update{updates.length !== 1 ? "s" : ""} submitted by employees
+          {serialized.length} task{serialized.length !== 1 ? "s" : ""} &middot; {totalUpdates} update{totalUpdates !== 1 ? "s" : ""}
         </p>
       </div>
 
-      <WorkUpdatesTable updates={serializedUpdates} employees={employees} />
-
-      {serializedAwaiting.length > 0 && (
-        <div className="mt-12">
-          <TasksAwaitingTable tasks={serializedAwaiting} />
-        </div>
-      )}
+      <WorkUpdatesTable tasks={serialized} employees={employees} />
     </div>
   );
 }

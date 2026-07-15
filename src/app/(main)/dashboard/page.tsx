@@ -149,11 +149,11 @@ export default async function DashboardPage() {
 
   const employeeProjectData = Array.from(new Map(allMyTasks.map((t) => {
     const p = t.column.board.project;
-    return [p.id, { id: p.id, name: p.name, key: p.key, tasks: [] as { id: string; title: string; issueKey: string | null }[] }] as const;
+    return [p.id, { id: p.id, name: p.name, key: p.key, tasks: [] as { id: string; title: string; code: string | null; issueKey: string | null }[] }] as const;
   })).values());
   for (const t of allMyTasks) {
     const p = employeeProjectData.find((p) => p.id === t.column.board.project.id);
-    if (p) p.tasks.push({ id: t.id, title: t.title, issueKey: t.issueKey });
+    if (p) p.tasks.push({ id: t.id, title: t.title, code: t.code, issueKey: t.issueKey });
   }
 
   return (

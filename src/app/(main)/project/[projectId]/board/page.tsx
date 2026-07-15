@@ -30,6 +30,7 @@ export default async function ProjectBoardPage(props: {
                   assignee: { select: { id: true, name: true } },
                   labels: { include: { label: true } },
                   comments: { select: { id: true } },
+                  subtasks: { select: { id: true, title: true, status: true, code: true }, orderBy: { createdAt: "asc" } },
                 },
               },
             },
@@ -40,8 +41,11 @@ export default async function ProjectBoardPage(props: {
     },
   });
 
-  if (!project || project.workspace.members.length === 0) {
+  if (!project) {
     return <div className="text-gray-500 py-8 text-center">Board not found</div>;
+  }
+  if (project.workspace.members.length === 0) {
+    return <div className="text-gray-500 py-8 text-center">Not authorized</div>;
   }
 
   const board = project.boards[0];
@@ -67,6 +71,7 @@ export default async function ProjectBoardPage(props: {
     name: col.name,
     tasks: col.tasks
       .filter((t) => {
+        if (t.code && t.code.includes("_")) return false;
         if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
         if (priorityFilter && t.priority !== priorityFilter) return false;
         if (labelFilter && !t.labels.some((l) => l.label.id === labelFilter)) return false;
@@ -76,6 +81,7 @@ export default async function ProjectBoardPage(props: {
       .map((t) => ({
         id: t.id,
         title: t.title,
+        code: t.code,
         issueKey: t.issueKey,
         priority: t.priority,
         assignee: t.assignee,
@@ -93,6 +99,13 @@ export default async function ProjectBoardPage(props: {
         dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
         dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
         dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
+        subtasks: t.subtasks.map((s) => ({
+          id: s.id,
+          title: s.title,
+          code: s.code,
+          status: s.status,
+        })),
+        completedSubtaskCount: t.subtasks.filter((s) => s.status === "DONE").length,
       })),
   }));
 

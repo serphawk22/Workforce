@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { submitWorkUpdate } from "@/actions/work-update";
+import { submitWorkUpdate, getNextCode } from "@/actions/work-update";
 import { createSubtask, getSubtacks } from "@/actions/subtask";
 
-type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; issueKey: string | null }[] };
+type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; code: string | null; issueKey: string | null }[] };
 type Subtask = { id: string; title: string; status: string; createdBy: string; createdAt: string; updatedAt: string };
 
 export function WorkUpdateForm({ projects: initialProjects, onClose }: { projects: Project[]; onClose: () => void }) {
@@ -27,6 +27,7 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
   const [isCreatingNewTask, setIsCreatingNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [customCode, setCustomCode] = useState("");
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const tasks = selectedProject?.tasks || [];
@@ -77,6 +78,7 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
       formData.set("newTaskTitle", newTaskTitle);
       formData.set("newTaskProjectId", selectedProjectId);
       if (newTaskDescription) formData.set("newTaskDescription", newTaskDescription);
+      if (customCode.trim()) formData.set("customCode", customCode.trim());
     }
 
     const result = await submitWorkUpdate(formData);
@@ -119,20 +121,29 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
               <button type="button" onClick={() => { setIsCreatingNewTask(false); setSelectedTaskId(""); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${!isCreatingNewTask ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 Select existing
               </button>
-              <button type="button" onClick={() => { setIsCreatingNewTask(true); setSelectedTaskId(""); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${isCreatingNewTask ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <button type="button" onClick={async () => { setIsCreatingNewTask(true); setSelectedTaskId(""); const next = await getNextCode(); setCustomCode(next); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${isCreatingNewTask ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 Create new
               </button>
             </div>
             {isCreatingNewTask ? (
               <div className="space-y-2">
-                <input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Task title..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" disabled={!selectedProjectId} />
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Code</label>
+                    <input value={customCode} onChange={(e) => setCustomCode(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono" disabled={!selectedProjectId} />
+                  </div>
+                  <div className="flex-[3]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Task Title</label>
+                    <input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Task title..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" disabled={!selectedProjectId} />
+                  </div>
+                </div>
                 <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} rows={2} placeholder="Description (optional)..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" disabled={!selectedProjectId} />
               </div>
             ) : (
               <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setSelectedSubtaskId(""); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" disabled={!selectedProjectId}>
                 <option value="">Select task...</option>
                 {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.issueKey || ""} {t.title}</option>
+                  <option key={t.id} value={t.id}>{t.code ? `#${t.code}` : t.issueKey || ""} {t.title}</option>
                 ))}
               </select>
             )}
@@ -189,8 +200,8 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Time Spent (minutes)</label>
-            <input type="number" min="0" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Time Spent (hours)</label>
+            <input type="number" min="0" step="0.01" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}

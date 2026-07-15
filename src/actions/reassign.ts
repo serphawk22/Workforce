@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { requireAdmin } from "@/lib/authorization";
-import { syncTaskToSheet } from "@/lib/sheet-writer";
 import { logActivity } from "@/lib/activity-log";
 
 export async function reassignTask(formData: FormData): Promise<{ error: string; success?: undefined } | { success: true; error?: undefined }> {
@@ -63,15 +62,6 @@ export async function reassignTask(formData: FormData): Promise<{ error: string;
       taskId,
     },
   });
-
-  if (task.sheetCode) {
-    const newAssignee = await prisma.user.findUnique({
-      where: { id: newAssigneeId },
-      select: { name: true, email: true },
-    });
-    const ownerValue = newAssignee?.name || newAssignee?.email || "";
-    await syncTaskToSheet(task.sheetCode, { "current owner": ownerValue }).catch(() => {});
-  }
 
   revalidatePath(`/project/${task.column.board.projectId}`);
   return { success: true };

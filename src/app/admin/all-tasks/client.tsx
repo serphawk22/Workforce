@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { ReassignTaskModal } from "@/components/task/reassign-task-modal";
+import { createSubtask } from "@/actions/subtask";
 
 const priorityColors: Record<string, string> = {
   LOW: "bg-gray-300",
@@ -26,6 +29,7 @@ function formatDate(date: string | null): string {
 type Task = {
   id: string;
   title: string;
+  code?: string | null;
   priority: string;
   dueDate: string | null;
   category: string | null;
@@ -45,12 +49,18 @@ type Props = {
 };
 
 export function AllTasksClient({ tasks, projects, employees, statuses, categories, priorities }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [reassignTarget, setReassignTarget] = useState<Task | null>(null);
+  const [subtaskTarget, setSubtaskTarget] = useState<Task | null>(null);
+  const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [subtaskLoading, setSubtaskLoading] = useState(false);
+  const [subtaskError, setSubtaskError] = useState("");
 
   const filtered = tasks.filter((t) => {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -66,6 +76,22 @@ export function AllTasksClient({ tasks, projects, employees, statuses, categorie
     if (!dueDate) return false;
     return new Date(dueDate) < new Date();
   };
+
+  async function handleCreateSubtask(taskId: string) {
+    if (!subtaskTitle.trim()) return;
+    setSubtaskLoading(true);
+    setSubtaskError("");
+    const result = await createSubtask(taskId, subtaskTitle.trim());
+    if (result.error) {
+      setSubtaskError(typeof result.error === "string" ? result.error : "Failed to create subtask");
+      setSubtaskLoading(false);
+      return;
+    }
+    setSubtaskTitle("");
+    setSubtaskTarget(null);
+    setSubtaskLoading(false);
+    router.refresh();
+  }
 
   return (
     <div>
@@ -145,6 +171,7 @@ export function AllTasksClient({ tasks, projects, employees, statuses, categorie
                 className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-gray-50"
               >
                 <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${priorityColors[t.priority] || "bg-gray-300"}`} />
+                <span className="text-xs font-mono text-gray-400 w-12 shrink-0">{t.code ? `#${t.code}` : ""}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {t.title}

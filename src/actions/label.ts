@@ -16,6 +16,13 @@ export async function createLabel(formData: FormData) {
 
   const { projectId, name, color } = parsed.data;
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspace: { select: { members: { where: { userId: session.user.id }, select: { id: true } } } } },
+  });
+  if (!project) return { error: { _form: ["Project not found"] } };
+  if (project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
+
   const existing = await prisma.label.findUnique({
     where: { name_projectId: { name, projectId } },
   });
@@ -37,9 +44,28 @@ export async function addTaskLabel(formData: FormData) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: {
+      column: {
+        include: {
+          board: {
+            include: {
+              project: {
+                select: {
+                  workspace: {
+                    select: { members: { where: { userId: session.user.id }, select: { id: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!task) return { error: { _form: ["Task not found"] } };
+  if (task.column.board.project.workspace.members.length === 0) {
+    return { error: { _form: ["Not authorized"] } };
+  }
 
   await prisma.taskLabel.create({
     data: { taskId, labelId },
@@ -57,9 +83,28 @@ export async function removeTaskLabel(formData: FormData) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { column: { include: { board: { include: { project: true } } } } },
+    include: {
+      column: {
+        include: {
+          board: {
+            include: {
+              project: {
+                select: {
+                  workspace: {
+                    select: { members: { where: { userId: session.user.id }, select: { id: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!task) return { error: { _form: ["Task not found"] } };
+  if (task.column.board.project.workspace.members.length === 0) {
+    return { error: { _form: ["Not authorized"] } };
+  }
 
   await prisma.taskLabel.deleteMany({
     where: { taskId, labelId },

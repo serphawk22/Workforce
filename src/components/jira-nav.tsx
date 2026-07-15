@@ -41,8 +41,8 @@ export function JiraNav({
 
   const adminLinks = [
     { href: "/admin", label: "Administration" },
-    { href: "/admin/google-sync", label: "Google Sync" },
     { href: "/admin/work-updates", label: "Work Updates" },
+    { href: "/reports", label: "Reports" },
   ];
 
   function isActive(href: string) {
