@@ -1,59 +1,98 @@
 import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { TaskItem } from "@/components/dashboard/task-item";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { formatDate, formatRelativeTime, isToday, getWeekStart } from "@/lib/dates";
 import { UpdateWorkButton } from "@/components/work-update/update-work-button";
+import {
+  ListChecks,
+  Clock,
+  CheckCircle2,
+  Rocket,
+  ArrowUpRight,
+  AlertCircle,
+  CalendarDays,
+  FolderKanban,
+  RefreshCw,
+} from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-function ListIcon() {
+function StatCard({ icon, title, value, description, color }: { icon: React.ReactNode; title: string; value: number; description: string; color: string }) {
+  const colors: Record<string, { bg: string; text: string; ring: string }> = {
+    blue: { bg: "bg-blue-50", text: "text-blue-600", ring: "ring-blue-500/10" },
+    amber: { bg: "bg-amber-50", text: "text-amber-600", ring: "ring-amber-500/10" },
+    green: { bg: "bg-green-50", text: "text-green-600", ring: "ring-green-500/10" },
+    purple: { bg: "bg-purple-50", text: "text-purple-600", ring: "ring-purple-500/10" },
+  };
+  const c = colors[color as keyof typeof colors] || colors.blue;
+
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
+    <Card hover className="relative overflow-hidden group">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-400 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          <p className="text-xs text-gray-400 mt-1">{description}</p>
+        </div>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${c.bg} ${c.text} ring-1 ${c.ring}`}>
+          {icon}
+        </div>
+      </div>
+    </Card>
   );
 }
 
-function ClockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
+function TaskCard({ task }: { task: any }) {
+  const priorityColors: Record<string, string> = {
+    CRITICAL: "bg-red-500",
+    HIGH: "bg-amber-500",
+    MEDIUM: "bg-blue-500",
+    LOW: "bg-gray-400",
+  };
+  const priorityLabels: Record<string, string> = {
+    CRITICAL: "Critical",
+    HIGH: "High",
+    MEDIUM: "Medium",
+    LOW: "Low",
+  };
 
-function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  );
-}
-
-function GridIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-
-function RocketIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-      <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-    </svg>
-  );
-}
-
-function ArrowUpRight() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" />
-    </svg>
+    <div className="group flex items-center gap-4 rounded-2xl px-4 py-3 hover:bg-gray-50 transition-colors">
+      <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${priorityColors[task.priority] || "bg-gray-400"}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <span className="truncate">{task.column?.board?.project?.name || "Project"}</span>
+          {task.dueDate && (
+            <span className="flex items-center gap-1">
+              <CalendarDays className="h-3 w-3" />
+              {formatDate(new Date(task.dueDate))}
+            </span>
+          )}
+          {task.githubLink && (
+            <a href={task.githubLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700" onClick={(e) => e.stopPropagation()}>
+              <ArrowUpRight className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant={
+          task.column?.name === "Done" ? "success" :
+          task.column?.name === "In Progress" ? "info" :
+          task.column?.name === "Review" ? "warning" : "default"
+        } size="sm">
+          {task.column?.name || "To Do"}
+        </Badge>
+        {task.assignee && (
+          <Avatar name={task.assignee.name} size="sm" />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -62,10 +101,6 @@ export default async function DashboardPage() {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return null;
 
-  const workspaces = await prisma.workspace.findMany({
-    where: { members: { some: { userId: session.user.id } } },
-  });
-
   const now = new Date();
   const weekStart = getWeekStart(now);
 
@@ -73,6 +108,7 @@ export default async function DashboardPage() {
     where: { assigneeId: session.user.id },
     include: {
       column: { include: { board: { include: { project: true } } } },
+      assignee: true,
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -137,6 +173,7 @@ export default async function DashboardPage() {
     },
     include: {
       column: { include: { board: { include: { project: true } } } },
+      assignee: true,
     },
     orderBy: { updatedAt: "desc" },
     take: 5,
@@ -157,194 +194,191 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen">
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Welcome back, {user.name}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <UpdateWorkButton projects={employeeProjectData} />
-            <a
-              href="/my-tasks"
-              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
-            >
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-400 mt-1">Welcome back, {user.name}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <UpdateWorkButton projects={employeeProjectData} />
+          <Link href="/my-tasks">
+            <Button variant="secondary" size="md">
               View all tasks
-              <ArrowUpRight />
-            </a>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard icon={<ListChecks className="h-6 w-6" />} title="Assigned to me" value={totalAssigned} description={`${completionPct}% completed`} color="blue" />
+        <StatCard icon={<Clock className="h-6 w-6" />} title="Due Today" value={tasksDueToday.length} description="Tasks due today" color="amber" />
+        <StatCard icon={<CheckCircle2 className="h-6 w-6" />} title="Completed" value={completedTasks.length} description="Tasks completed" color="green" />
+        <StatCard icon={<Rocket className="h-6 w-6" />} title="Started Today" value={tasksStartedToday.length} description="Dev started today" color="purple" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        {overdueTasks.length > 0 && (
+          <Card className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <h2 className="text-base font-semibold text-gray-900">Overdue Tasks</h2>
+              </div>
+              <Badge variant="danger" size="sm">{overdueTasks.length}</Badge>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {overdueTasks.slice(0, 5).map((t) => <TaskCard key={t.id} task={t} />)}
+            </div>
+          </Card>
+        )}
+
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-gray-400" />
+              <h2 className="text-base font-semibold text-gray-900">Statistics</h2>
+            </div>
           </div>
-        </div>
-
-        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={<ListIcon />} title="Assigned to me" value={totalAssigned} description={completionPct > 0 ? `${completionPct}% completed` : "Tasks assigned to you"} accentClass="text-blue-600" bgAccentClass="bg-blue-50" />
-          <StatCard icon={<ClockIcon />} title="Due Today" value={tasksDueToday.length} description="Tasks due today" accentClass="text-amber-600" bgAccentClass="bg-amber-50" />
-          <StatCard icon={<CheckIcon />} title="Completed" value={completedTasks.length} description={completionPct > 0 ? `${completionPct}% of assigned` : "Tasks completed"} accentClass="text-emerald-600" bgAccentClass="bg-emerald-50" />
-          <StatCard icon={<RocketIcon />} title="Started Today" value={tasksStartedToday.length} description="Dev started today" accentClass="text-blue-600" bgAccentClass="bg-blue-50" />
-        </div>
-
-        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {tasksDueToday.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-amber-700">Due Today</h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-xs font-medium text-amber-700">{tasksDueToday.length}</span>
-              </div>
-              <div className="space-y-1">
-                {tasksDueToday.map((t) => <TaskItem key={t.id} task={t} />)}
-              </div>
-            </div>
-          )}
-
-          {overdueTasks.length > 0 && (
-            <div className="rounded-xl border border-red-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-red-700">Overdue Tasks</h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-red-100 text-xs font-medium text-red-700">{overdueTasks.length}</span>
-              </div>
-              <div className="space-y-1">
-                {overdueTasks.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {completedThisWeek.length > 0 && (
-            <div className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-emerald-700">Completed This Week</h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-xs font-medium text-emerald-700">{completedThisWeek.length}</span>
-              </div>
-              <div className="space-y-1">
-                {completedThisWeek.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
-              </div>
-            </div>
-          )}
-
-          {recentlyReleased.length > 0 && (
-            <div className="rounded-xl border border-purple-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-purple-700">Recently Released</h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-purple-100 text-xs font-medium text-purple-700">{recentlyReleased.length}</span>
-              </div>
-              <div className="space-y-1">
-                {recentlyReleased.slice(0, 5).map((t) => <TaskItem key={t.id} task={t} />)}
-              </div>
-            </div>
-          )}
-
-          {upcomingReleases.length > 0 && (
-            <div className="rounded-xl border border-blue-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-blue-700">Upcoming Releases</h2>
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">{upcomingReleases.length}</span>
-              </div>
-              <div className="space-y-1">
-                {upcomingReleases.map((t) => <TaskItem key={t.id} task={t} />)}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold text-gray-900">Statistics</h2>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Total Assigned</span>
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-gray-400">Total Assigned</span>
                 <span className="font-medium text-gray-900">{totalAssigned}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Completed</span>
-                <span className="font-medium text-emerald-600">{completedTasks.length}</span>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-gray-400">Completed</span>
+                <span className="font-medium text-green-600">{completedTasks.length}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">In Progress</span>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-gray-400">In Progress</span>
                 <span className="font-medium text-blue-600">{inProgressTasks.length}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Pending</span>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-gray-400">Pending</span>
                 <span className="font-medium text-gray-900">{totalAssigned - completedTasks.length}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Overdue</span>
+              <div className="flex items-center justify-between text-sm mb-3">
+                <span className="text-gray-400">Overdue</span>
                 <span className="font-medium text-red-600">{overdueTasks.length}</span>
               </div>
-              {completionPct > 0 && (
-                <div className="pt-2">
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Completion</span>
-                    <span className="font-medium text-gray-900">{completionPct}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${completionPct}%` }} />
-                  </div>
+              <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-gray-400">Completion</span>
+                  <span className="font-semibold text-gray-900">{completionPct}%</span>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Your Projects</h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">{projectNames.length}</span>
-            </div>
-            {projectNames.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-400">No projects yet</p>
-            ) : (
-              <div className="space-y-1">
-                {projectNames.map((name) => (
-                  <div key={name} className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">{name}</p>
-                    </div>
-                  </div>
-                ))}
+                <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${completionPct}%` }}
+                  />
+                </div>
               </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Recently Updated</h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-medium text-gray-600">{recentTasks.length}</span>
-            </div>
-            <div className="space-y-1">
-              {recentTasks.length === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-400">No recent tasks</p>
-              ) : (
-                recentTasks.map((t) => <TaskItem key={t.id} task={t} />)
-              )}
             </div>
           </div>
-        </div>
+        </Card>
+      </div>
 
-        {upcomingTasks.length > 0 && (
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Upcoming Timeline</h2>
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-xs font-medium text-blue-700">{upcomingTasks.length}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        {completedThisWeek.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <h2 className="text-base font-semibold text-gray-900">Completed This Week</h2>
+              </div>
+              <Badge variant="success" size="sm">{completedThisWeek.length}</Badge>
             </div>
-            <div className="space-y-1">
-              {upcomingTasks.map((t) => (
-                <div key={t.id} className="relative pl-8">
-                  <div className="absolute left-3 top-3 h-2 w-2 rounded-full border-2 border-blue-400 bg-white" />
-                  <div className="absolute left-[11px] top-6 h-full w-px bg-gray-200" />
-                  <TaskItem task={t} />
+            <div className="divide-y divide-gray-100">
+              {completedThisWeek.slice(0, 5).map((t) => <TaskCard key={t.id} task={t} />)}
+            </div>
+          </Card>
+        )}
+
+        {upcomingReleases.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-purple-500" />
+                <h2 className="text-base font-semibold text-gray-900">Upcoming Releases</h2>
+              </div>
+              <Badge variant="info" size="sm">{upcomingReleases.length}</Badge>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {upcomingReleases.map((t) => <TaskCard key={t.id} task={t} />)}
+            </div>
+          </Card>
+        )}
+
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FolderKanban className="h-5 w-5 text-gray-400" />
+              <h2 className="text-base font-semibold text-gray-900">Your Projects</h2>
+            </div>
+            <Badge variant="default" size="sm">{projectNames.length}</Badge>
+          </div>
+          {projectNames.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No projects yet</p>
+          ) : (
+            <div className="space-y-2">
+              {projectNames.map((name) => (
+                <div key={name} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <FolderKanban className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                  </div>
                 </div>
               ))}
             </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-gray-400" />
+              <h2 className="text-base font-semibold text-gray-900">Recently Updated</h2>
+            </div>
+            <Badge variant="default" size="sm">{recentTasks.length}</Badge>
           </div>
+          {recentTasks.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No recent tasks</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recentTasks.map((t) => <TaskCard key={t.id} task={t} />)}
+            </div>
+          )}
+        </Card>
+
+        {upcomingTasks.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-gray-400" />
+                <h2 className="text-base font-semibold text-gray-900">Upcoming Timeline</h2>
+              </div>
+              <Badge variant="info" size="sm">{upcomingTasks.length}</Badge>
+            </div>
+            <div className="space-y-1">
+              {upcomingTasks.map((t, i) => (
+                <div key={t.id} className="relative pl-8">
+                  <div className="absolute left-3 top-4 h-2.5 w-2.5 rounded-full border-2 border-blue-400 bg-white" />
+                  {i < upcomingTasks.length - 1 && (
+                    <div className="absolute left-[11px] top-7 h-full w-px bg-gray-200" />
+                  )}
+                  <TaskCard task={t} />
+                </div>
+              ))}
+            </div>
+          </Card>
         )}
-      </main>
+      </div>
     </div>
   );
 }

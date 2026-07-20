@@ -16,6 +16,7 @@ import { moveTask } from "@/actions/task";
 import { TaskDetailModal } from "../task/task-detail-modal";
 import { CreateTaskModal } from "../task/create-task-modal";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
+import { Plus, GripVertical } from "lucide-react";
 
 type SubtaskInfo = {
   id: string;
@@ -44,6 +45,8 @@ type TaskData = {
   subtasks: SubtaskInfo[];
   completedSubtaskCount: number;
 };
+
+
 
 type SprintItem = {
   id: string;
@@ -245,7 +248,7 @@ export function Board({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
+      <div className="flex gap-5 overflow-x-auto pb-6 min-h-[600px] px-1">
         {columns.map((col) => (
           <div key={col.id} className="flex-shrink-0 w-72">
             <ColumnComponent
@@ -258,16 +261,17 @@ export function Board({
         <div className="flex-shrink-0 w-72">
           <button
             onClick={() => setShowColumnPrompt(true)}
-            className="w-full rounded-xl border-2 border-dashed border-gray-200 p-4 text-sm text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 p-4 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50/50 transition-all min-h-[100px]"
           >
-            + Add Column
+            <Plus className="h-4 w-4" />
+            Add Column
           </button>
         </div>
       </div>
 
       <DragOverlay>
         {activeItem ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-xl w-72">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-2xl w-72">
             <p className="text-sm font-medium text-gray-900">{activeItem.title}</p>
             {activeItem.type === "task" && activeItem.subtaskCount > 0 && (
               <p className="mt-1 text-xs text-gray-400">{activeItem.subtaskCount} subtask{activeItem.subtaskCount !== 1 ? "s" : ""}</p>

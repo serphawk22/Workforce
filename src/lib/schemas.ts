@@ -15,7 +15,6 @@ export const createTaskSchema = z.object({
   labelIds: z.array(z.string()).optional(),
   sprintId: z.string().optional(),
   projectId: z.string().optional(),
-  storyPoints: z.number().int().min(0).optional(),
   githubLink: z.string().optional(),
   productionUrl: z.string().optional(),
 });

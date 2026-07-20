@@ -1,11 +1,30 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createTask, updateTask } from "@/actions/task";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { TaskDetailModal } from "@/components/task/task-detail-modal";
+import {
+  Bug,
+  CheckSquare,
+  Layers,
+  BookOpen,
+  Wand2,
+  TrendingUp,
+  Indent,
+  ChevronsUp,
+  ChevronUp,
+  Minus,
+  ChevronDown,
+  Search,
+  Plus,
+  ChevronRight,
+  ChevronDown as ChevronDownIcon,
+  GitBranch,
+  Globe,
+} from "lucide-react";
 
 type ListTask = {
   id: string;
@@ -26,7 +45,6 @@ type ListTask = {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
-  storyPoints: number;
   githubLink: string | null;
   productionUrl: string | null;
   dateOfDevAcceptOrStart: string | null;
@@ -44,11 +62,21 @@ type EpicData = { id: string; title: string; issueKey: string | null };
 
 type SortConfig = { key: string; direction: "asc" | "desc" } | null;
 
-const priorityColors: Record<string, string> = {
-  LOW: "bg-gray-300",
-  MEDIUM: "bg-blue-500",
-  HIGH: "bg-orange-500",
-  CRITICAL: "bg-red-500",
+const typeConfig: Record<string, { icon: typeof Bug; color: string; bg: string; label: string }> = {
+  EPIC: { icon: Layers, color: "#7C3AED", bg: "bg-purple-50", label: "Epic" },
+  TASK: { icon: CheckSquare, color: "#3B82F6", bg: "bg-blue-50", label: "Task" },
+  STORY: { icon: BookOpen, color: "#10B981", bg: "bg-green-50", label: "Story" },
+  BUG: { icon: Bug, color: "#EF4444", bg: "bg-red-50", label: "Bug" },
+  FEATURE_REQUEST: { icon: Wand2, color: "#F59E0B", bg: "bg-amber-50", label: "Feature" },
+  IMPROVEMENT: { icon: TrendingUp, color: "#06B6D4", bg: "bg-cyan-50", label: "Improvement" },
+  SUBTASK: { icon: Indent, color: "#6B7280", bg: "bg-gray-50", label: "Subtask" },
+};
+
+const priorityConfig: Record<string, { icon: typeof Bug; color: string; label: string }> = {
+  CRITICAL: { icon: ChevronsUp, color: "#DC2626", label: "Critical" },
+  HIGH: { icon: ChevronUp, color: "#F59E0B", label: "High" },
+  MEDIUM: { icon: Minus, color: "#3B82F6", label: "Medium" },
+  LOW: { icon: ChevronDown, color: "#9CA3AF", label: "Low" },
 };
 
 const priorityLabels: Record<string, string> = {
@@ -56,16 +84,6 @@ const priorityLabels: Record<string, string> = {
   MEDIUM: "Medium",
   HIGH: "High",
   CRITICAL: "Critical",
-};
-
-const typeIcons: Record<string, string> = {
-  EPIC: "⬡",
-  TASK: "☐",
-  STORY: "📖",
-  BUG: "🐛",
-  FEATURE_REQUEST: "★",
-  IMPROVEMENT: "▲",
-  SUBTASK: "⁝",
 };
 
 const doneStatuses = ["Done", "Released", "Closed"];
@@ -116,6 +134,18 @@ export function ListView({
   const [quickCreate, setQuickCreate] = useState(false);
   const [quickCreateTitle, setQuickCreateTitle] = useState("");
   const [quickCreateType, setQuickCreateType] = useState("TASK");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const epicIds = useMemo(() => new Set(epics.map((e) => e.id)), [epics]);
 
@@ -168,7 +198,6 @@ export function ListView({
           case "dueDate": aVal = a.dueDate || ""; bVal = b.dueDate || ""; break;
           case "createdAt": aVal = a.createdAt; bVal = b.createdAt; break;
           case "updatedAt": aVal = a.updatedAt; bVal = b.updatedAt; break;
-          case "storyPoints": aVal = a.storyPoints; bVal = b.storyPoints; break;
         }
         if (aVal === bVal) return 0;
         if (sortConfig.direction === "asc") return aVal! > bVal! ? 1 : -1;
@@ -265,21 +294,52 @@ export function ListView({
     }
   }, [quickCreateTitle, quickCreateType, projectId, columns, router]);
 
-  function SortHeader({ label, sortKey }: { label: string; sortKey: string }) {
+  const visibleEpics = useMemo(() => {
+    return grouped.epicTasks.filter((t) => filtered.find((ft) => ft.id === t.id));
+  }, [grouped.epicTasks, filtered]);
+
+  const visibleStandalone = useMemo(() => {
+    return grouped.standalone.filter((t) => t.type !== "EPIC" && filtered.find((ft) => ft.id === t.id));
+  }, [grouped.standalone, filtered]);
+
+  function SortHeader({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) {
     const isActive = sortConfig?.key === sortKey;
+    const textAlign = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
     return (
       <th
-        className="cursor-pointer select-none px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
+        className={`cursor-pointer select-none px-3 py-3 ${textAlign} text-[11px] font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-800 transition-colors`}
         onClick={() => handleSort(sortKey)}
       >
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1.5">
           {label}
-          {isActive && (
-            <span className="text-gray-400">{sortConfig!.direction === "asc" ? "↑" : "↓"}</span>
-          )}
+          <span className="relative w-3 h-3">
+            {isActive && (
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] text-primary font-bold">
+                {sortConfig!.direction === "asc" ? "↑" : "↓"}
+              </span>
+            )}
+          </span>
         </span>
       </th>
     );
+  }
+
+  function TypeIcon({ type }: { type: string }) {
+    const config = typeConfig[type];
+    if (!config) return <CheckSquare className="h-3.5 w-3.5 text-gray-400" />;
+    const Icon = config.icon;
+    return (
+      <div className={`flex h-5 w-5 items-center justify-center rounded ${config.bg}`} title={config.label}>
+        <Icon className="h-3 w-3" style={{ color: config.color }} strokeWidth={2.5} />
+      </div>
+    );
+  }
+
+  function PriorityIcon({ priority }: { priority: string }) {
+    const config = priorityConfig[priority];
+    if (!config) return null;
+    const Icon = config.icon;
+    return <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: config.color }} strokeWidth={2.5} />;
   }
 
   function assigneeSelect(taskId: string, current: string | undefined) {
@@ -287,7 +347,7 @@ export function ListView({
       <select
         value={current || ""}
         onChange={(e) => handleInlineUpdate(taskId, "assigneeId", e.target.value)}
-        className="max-w-[120px] rounded border-0 bg-transparent py-0 text-xs font-medium text-gray-700 focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50"
+        className="max-w-[110px] rounded-md border-0 bg-transparent py-0 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         <option value="">Unassigned</option>
@@ -303,7 +363,8 @@ export function ListView({
       <select
         value={current}
         onChange={(e) => handleInlineUpdate(taskId, "priority", e.target.value)}
-        className="rounded border-0 bg-transparent py-0 text-xs font-medium focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50"
+        className="rounded-md border-0 bg-transparent py-0 text-[11px] font-semibold focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50 transition-colors"
+        style={{ color: priorityConfig[current]?.color || "#9CA3AF" }}
         onClick={(e) => e.stopPropagation()}
       >
         <option value="LOW">Low</option>
@@ -322,7 +383,7 @@ export function ListView({
           const col = columns.find((c) => c.name === e.target.value);
           if (col) handleInlineUpdate(taskId, "columnId", col.id);
         }}
-        className="rounded border-0 bg-transparent py-0 text-xs font-medium focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50"
+        className="rounded-md border-0 bg-transparent py-0 text-[11px] font-medium focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {columns.map((c) => (
@@ -337,18 +398,50 @@ export function ListView({
       <select
         value={current || ""}
         onChange={(e) => handleInlineUpdate(taskId, "sprintId", e.target.value)}
-        className="max-w-[100px] rounded border-0 bg-transparent py-0 text-xs text-gray-500 focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50"
+        className="max-w-[90px] rounded-md border-0 bg-transparent py-0 text-[11px] text-gray-500 focus:outline-none focus:ring-0 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         <option value="">No sprint</option>
-        {sprints.map((s) => (
+        {sprints.filter((s) => s.status !== "COMPLETED").map((s) => (
           <option key={s.id} value={s.id}>{s.name}</option>
         ))}
       </select>
     );
   }
 
-  function renderRow(t: ListTask, depth: number = 0) {
+  function renderSubtaskRow(st: ListTask["subtasks"][0], hasNext: boolean, depth: number) {
+    return (
+      <tr key={`sub-${st.id}`} className="border-b border-gray-100 group hover:bg-blue-50/20 transition-colors">
+        <td className="px-3 py-2 w-10" />
+        <td className="px-3 py-2" colSpan={16}>
+          <div className="flex items-center gap-2" style={{ paddingLeft: `${depth * 18}px` }}>
+            <div className="flex items-stretch h-full mr-1">
+              <div className="w-[18px] shrink-0 relative">
+                <div className="absolute left-1/2 top-0 bottom-1/2 w-px bg-gray-200" />
+                <div className="absolute left-1/2 top-1/2 w-1/2 h-px bg-gray-200" />
+                {hasNext && (
+                  <div className="absolute left-1/2 bottom-0 w-px bg-gray-200" style={{ top: "50%" }} />
+                )}
+              </div>
+            </div>
+            <Indent className="h-3 w-3 text-gray-400 shrink-0" strokeWidth={2} />
+            <span className="font-mono text-[11px] text-gray-400 w-16 shrink-0">{st.code ? `#${st.code}` : "—"}</span>
+            <span className={`text-[12px] ${st.status === "DONE" ? "line-through text-gray-400" : "text-gray-700 font-medium"}`}>
+              {st.title}
+            </span>
+            <Badge variant={
+              st.status === "DONE" ? "success" :
+              st.status === "IN_PROGRESS" ? "info" : "default"
+            } size="sm">
+              {st.status.replace("_", " ")}
+            </Badge>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  function renderTaskRow(t: ListTask, depth: number = 0, hasNextSibling: boolean = false, treeParentHasNext: boolean[] = []) {
     const isEpic = t.type === "EPIC";
     const hasChildren = isEpic && (grouped.epicChildren.get(t.id)?.length || 0) > 0;
     const hasSubtasks = t.subtasks.length > 0;
@@ -356,205 +449,278 @@ export function ListView({
     const showSubtasks = hasSubtasks && isExpanded;
 
     const children: ListTask[] = isEpic ? (grouped.epicChildren.get(t.id) || []) : [];
+    const TypeConf = typeConfig[t.type] || typeConfig.TASK;
+    const TypeIconComp = TypeConf.icon;
+    const PriorityConf = priorityConfig[t.priority] || priorityConfig.MEDIUM;
 
     return (
-      <tbody key={t.id}>
-        <tr className={`group border-b border-gray-100 transition-colors hover:bg-blue-50/30 ${selectedIds.has(t.id) ? "bg-blue-50" : ""}`} style={{ cursor: "pointer" }} onClick={() => setSelectedTask(t)}>
+      <tbody key={t.id} className="animate-fade-in">
+        <tr
+          className={`border-b border-gray-100 group transition-all duration-150 ${
+            selectedIds.has(t.id) ? "bg-blue-50/60" : "hover:bg-blue-50/20"
+          }`}
+          style={{ cursor: "pointer" }}
+          onClick={() => setSelectedTask(t)}
+        >
           <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="checkbox"
-              checked={selectedIds.has(t.id)}
-              onChange={() => toggleSelect(t.id)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
+            <div className="flex items-center h-full">
+              {depth > 0 && (
+                <div className="flex items-stretch h-full mr-1">
+                  {treeParentHasNext.map((hasNext, i) => (
+                    <div key={i} className="w-[18px] shrink-0">
+                      {hasNext && <div className="mx-auto w-px h-full min-h-[36px] bg-gray-200" />}
+                    </div>
+                  ))}
+                  <div className="w-[18px] shrink-0 relative">
+                    <div className="absolute left-1/2 top-0 bottom-1/2 w-px bg-gray-200" />
+                    <div className="absolute left-1/2 top-1/2 w-1/2 h-px bg-gray-200" />
+                    {hasNextSibling && (
+                      <div className="absolute left-1/2 bottom-0 w-px bg-gray-200" style={{ top: "50%" }} />
+                    )}
+                  </div>
+                </div>
+              )}
+              <input
+                type="checkbox"
+                checked={selectedIds.has(t.id)}
+                onChange={() => toggleSelect(t.id)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30 shrink-0"
+              />
+            </div>
           </td>
-          <td className="px-3 py-2.5" style={{ paddingLeft: `${16 + depth * 24}px` }}>
-            <div className="flex items-center gap-1">
+          <td className="px-3 py-2.5 w-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-0.5">
               {(hasChildren || hasSubtasks) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); isEpic ? toggleEpic(t.id) : toggleTask(t.id); }}
-                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
                 >
-                  <span className="text-xs">{isExpanded ? "▼" : "▶"}</span>
+                  {isExpanded ? <ChevronDownIcon className="h-3 w-3" strokeWidth={2.5} /> : <ChevronRight className="h-3 w-3" strokeWidth={2.5} />}
                 </button>
               )}
-              {!hasChildren && !hasSubtasks && <span className="w-4" />}
-              <span className="text-xs">{typeIcons[t.type] || "☐"}</span>
+              {!hasChildren && !hasSubtasks && <span className="w-5" />}
+              <TypeIcon type={t.type} />
             </div>
           </td>
-          <td className="px-3 py-2.5">
-            <span className="text-xs font-mono text-gray-400">{t.code ? `#${t.code}` : t.issueKey || "—"}</span>
+          <td className="px-3 py-2.5 w-24">
+            <span className="font-mono text-[11px] text-gray-400 font-medium">
+              {t.code ? `#${t.code}` : t.issueKey || "—"}
+            </span>
           </td>
-          <td className="px-3 py-2.5 max-w-[250px]">
-            <div className="truncate text-sm font-medium text-gray-900">
-              {t.title}
+          <td className="px-3 py-2.5 min-w-[180px] max-w-[300px]">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-[13px] font-medium text-gray-900 group-hover:text-primary transition-colors">
+                {t.title}
+              </span>
               {t.epic && !epicIds.has(t.id) && (
-                <span className="ml-2 text-xs text-gray-400">{t.epic.issueKey || t.epic.title}</span>
+                <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-500">
+                  {t.epic.issueKey || t.epic.title}
+                </span>
+              )}
+              {t.githubLink && (
+                <a href={t.githubLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 text-gray-300 hover:text-blue-500 transition-colors">
+                  <GitBranch className="h-3 w-3" strokeWidth={2} />
+                </a>
+              )}
+              {t.productionUrl && (
+                <a href={t.productionUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 text-gray-300 hover:text-blue-500 transition-colors">
+                  <Globe className="h-3 w-3" strokeWidth={2} />
+                </a>
               )}
             </div>
-          </td>
-          <td className="px-3 py-2.5 whitespace-nowrap">
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <Avatar name={t.assignee?.name || "?"} url={t.assignee?.avatarUrl} size="sm" />
-              {assigneeSelect(t.id, t.assignee?.id)}
-            </div>
-          </td>
-          <td className="px-3 py-2.5 whitespace-nowrap">
-            <span className="text-xs text-gray-500">{t.reporter?.name || "—"}</span>
           </td>
           <td className="px-3 py-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-full ${priorityColors[t.priority] || "bg-gray-300"}`} />
+              {t.assignee ? (
+                <>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[9px] font-semibold text-gray-600 ring-1 ring-white shrink-0">
+                    {t.assignee.avatarUrl ? (
+                      <img src={t.assignee.avatarUrl} alt={t.assignee.name} className="h-full w-full rounded-full object-cover" />
+                    ) : (
+                      t.assignee.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+                    )}
+                  </div>
+                  {assigneeSelect(t.id, t.assignee?.id)}
+                </>
+              ) : (
+                <span className="text-[11px] text-gray-400 italic">Unassigned</span>
+              )}
+            </div>
+          </td>
+          <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-gray-400">
+            {t.reporter?.name || "—"}
+          </td>
+          <td className="px-3 py-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1">
+              <PriorityIcon priority={t.priority} />
               {prioritySelect(t.id, t.priority)}
             </div>
           </td>
           <td className="px-3 py-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            {statusSelect(t.id, t.column.name)}
+            <div className="flex items-center">
+              <div className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                doneStatuses.includes(t.column.name) ? "bg-green-50 text-green-700" :
+                t.column.name === "In Progress" ? "bg-blue-50 text-blue-700" :
+                t.column.name === "Review" ? "bg-amber-50 text-amber-700" :
+                "bg-gray-50 text-gray-600"
+              }`}>
+                {statusSelect(t.id, t.column.name)}
+              </div>
+            </div>
           </td>
           <td className="px-3 py-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            {sprintSelect(t.id, t.sprint?.id)}
+            {t.sprint ? (
+              <div className="flex items-center gap-1">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
+                {sprintSelect(t.id, t.sprint?.id)}
+              </div>
+            ) : (
+              sprintSelect(t.id, undefined)
+            )}
           </td>
           <td className="px-3 py-2.5">
             <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
               {t.labels.slice(0, 2).map((l) => (
-                <span key={l.id} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: l.color + "18", color: l.color }}>
+                <span
+                  key={l.id}
+                  className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ backgroundColor: l.color + "15", color: l.color }}
+                >
                   {l.name}
                 </span>
               ))}
-              {t.labels.length > 2 && <span className="text-[10px] text-gray-400">+{t.labels.length - 2}</span>}
+              {t.labels.length > 2 && (
+                <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-500">
+                  +{t.labels.length - 2}
+                </span>
+              )}
             </div>
           </td>
-          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-400">{formatDate(t.createdAt)}</td>
-          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-400">{formatDate(t.updatedAt)}</td>
-          <td className="px-3 py-2.5 whitespace-nowrap text-xs">
-            <span className={isOverdue(t.dueDate) && !doneStatuses.includes(t.column.name) ? "font-medium text-red-600" : "text-gray-400"}>
+          <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-gray-400">{formatDate(t.createdAt)}</td>
+          <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-gray-400">{formatDate(t.updatedAt)}</td>
+          <td className="px-3 py-2.5 whitespace-nowrap text-[11px]">
+            <span className={
+              isOverdue(t.dueDate) && !doneStatuses.includes(t.column.name)
+                ? "font-semibold text-red-600"
+                : t.dueDate ? "text-gray-500" : "text-gray-300"
+            }>
               {formatDate(t.dueDate) || "—"}
             </span>
           </td>
-          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-400">
-            {t.storyPoints > 0 ? t.storyPoints : "—"}
-          </td>
-          <td className="px-3 py-2.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-            <div className="flex gap-2">
-              {t.githubLink && (
-                <a href={t.githubLink} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700" title="GitHub">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                </a>
-              )}
-              {t.productionUrl && (
-                <a href={t.productionUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700" title="Production">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                </a>
-              )}
-            </div>
-          </td>
-          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-gray-400">
+          <td className="px-3 py-2.5 whitespace-nowrap text-[11px] text-gray-500">
             {t.subtasks.length > 0 && (
-              <span className="font-medium text-gray-600">{t.completedSubtaskCount}/{t.subtasks.length}</span>
+              <span className="font-medium">{t.completedSubtaskCount}/{t.subtasks.length}</span>
             )}
           </td>
-          <td className="px-3 py-2.5 whitespace-nowrap" style={{ minWidth: "80px" }}>
+          <td className="px-3 py-2.5 whitespace-nowrap min-w-[90px]">
             {t.subtasks.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-16 rounded-full bg-gray-200">
-                  <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${(t.completedSubtaskCount / t.subtasks.length) * 100}%` }} />
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-12 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${(t.completedSubtaskCount / t.subtasks.length) * 100}%` }}
+                  />
                 </div>
-                <span className="text-xs text-gray-400">{Math.round((t.completedSubtaskCount / t.subtasks.length) * 100)}%</span>
+                <span className="text-[10px] font-medium text-gray-400">
+                  {Math.round((t.completedSubtaskCount / t.subtasks.length) * 100)}%
+                </span>
               </div>
             )}
           </td>
         </tr>
-        {showSubtasks && t.subtasks.map((st) => (
-          <tr key={`sub-${st.id}`} className="border-b border-gray-50 bg-gray-50/50 text-xs">
-            <td className="px-3 py-2" />
-            <td className="px-3 py-2" style={{ paddingLeft: `${16 + (depth + 1) * 24}px` }}>
-              <span className="text-[10px] text-gray-400">⁝</span>
-            </td>
-            <td className="px-3 py-2">
-              <span className="font-mono text-gray-500">{st.code ? `#${st.code}` : "—"}</span>
-            </td>
-            <td className="px-3 py-2 text-gray-700 font-medium">{st.title}</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2">
-              <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                st.status === "DONE" ? "bg-emerald-50 text-emerald-600" :
-                st.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
-              }`}>{st.status.replace("_", " ")}</span>
-            </td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-            <td className="px-3 py-2 text-gray-400">—</td>
-          </tr>
-        ))}
-        {hasChildren && isExpanded && children.map((child) => renderRow(child, depth + 1))}
+        {showSubtasks && t.subtasks.map((st, idx) => renderSubtaskRow(st, idx < t.subtasks.length - 1, depth + 1))}
+        {hasChildren && isExpanded && children.map((child, idx) =>
+          renderTaskRow(child, depth + 1, idx < children.length - 1, [...treeParentHasNext, hasNextSibling])
+        )}
       </tbody>
     );
   }
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+    <div className="animate-fade-in">
+      <div className="mb-5 flex flex-wrap items-center gap-2.5">
         <div className="relative flex-1 min-w-[200px]">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
           <input
+            ref={searchRef}
             type="text"
-            placeholder="Search tasks..."
+            placeholder="Search tasks...  "
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-gray-800 placeholder-gray-400 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
           />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+            ⌘K
+          </kbd>
         </div>
 
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
+        >
           <option value="">All statuses</option>
           {columns.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
 
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none">
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
+        >
           <option value="">All priorities</option>
           {Object.entries(priorityLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
-        <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none">
+        <select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
+        >
           <option value="">All assignees</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none">
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
+        >
           <option value="">All types</option>
-          <option value="EPIC">Epic</option>
-          <option value="TASK">Task</option>
-          <option value="STORY">Story</option>
-          <option value="BUG">Bug</option>
-          <option value="FEATURE_REQUEST">Feature Request</option>
-          <option value="IMPROVEMENT">Improvement</option>
+          {Object.entries(typeConfig).filter(([k]) => k !== "SUBTASK").map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
         </select>
 
-        <select value={sprintFilter} onChange={(e) => setSprintFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none">
+        <select
+          value={sprintFilter}
+          onChange={(e) => setSprintFilter(e.target.value)}
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none"
+        >
           <option value="">All sprints</option>
           {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-          <input type="checkbox" checked={hideCompleted} onChange={(e) => setHideCompleted(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600" />
-          Hide completed
+        <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:border-gray-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hideCompleted}
+            onChange={(e) => setHideCompleted(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+          />
+          Hide done
         </label>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">{filtered.length} of {tasks.length} tasks</span>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-500">
+            {filtered.length} <span className="text-gray-400 font-normal">of</span> {tasks.length} tasks
+          </span>
           {selectedIds.size > 0 && (
-            <span className="text-xs font-medium text-blue-600">{selectedIds.size} selected</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+              {selectedIds.size} selected
+            </span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -563,21 +729,21 @@ export function ListView({
               setExpandedEpics(new Set(epics.map((e) => e.id)));
               setExpandedTasks(new Set(tasks.filter((t) => t.subtasks.length > 0).map((t) => t.id)));
             }}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-300"
           >
             Expand all
           </button>
           <button
             onClick={() => { setExpandedEpics(new Set()); setExpandedTasks(new Set()); }}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-300"
           >
             Collapse all
           </button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-3">
             <select
               value={quickCreateType}
               onChange={(e) => setQuickCreateType(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none"
+              className="rounded-xl border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:outline-none"
             >
               <option value="TASK">Task</option>
               <option value="EPIC">Epic</option>
@@ -589,68 +755,78 @@ export function ListView({
             </select>
             <button
               onClick={() => setQuickCreate(true)}
-              className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary/90 active:scale-[0.97]"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              <Plus className="h-3 w-3" strokeWidth={2.5} />
               Create
             </button>
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full table-fixed">
-          <thead className="border-b border-gray-200 bg-gray-50/80">
-            <tr>
-              <th className="w-10 px-3 py-3">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/[0.02]">
+        <table className="w-full min-w-[1200px]">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-gray-200 bg-gray-50/95 backdrop-blur-sm">
+              <th className="w-10 px-3 py-3.5">
                 <input
                   type="checkbox"
                   checked={selectedIds.size === filtered.length && filtered.length > 0}
                   onChange={toggleSelectAll}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
                 />
               </th>
-              <th className="w-8 px-3 py-3" />
-              <SortHeader label="Code" sortKey="issueKey" />
+              <th className="w-8 px-3 py-3.5" />
+              <SortHeader label="Key" sortKey="issueKey" />
               <SortHeader label="Title" sortKey="title" />
               <SortHeader label="Assignee" sortKey="assignee" />
               <SortHeader label="Reporter" sortKey="reporter" />
               <SortHeader label="Priority" sortKey="priority" />
               <SortHeader label="Status" sortKey="status" />
               <SortHeader label="Sprint" sortKey="sprint" />
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labels</th>
+              <th className="px-3 py-3.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-widest">Labels</th>
               <SortHeader label="Created" sortKey="createdAt" />
               <SortHeader label="Updated" sortKey="updatedAt" />
-              <SortHeader label="Due Date" sortKey="dueDate" />
-              <SortHeader label="Points" sortKey="storyPoints" />
-              <th className="w-16 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Links</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtasks</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+              <SortHeader label="Due" sortKey="dueDate" />
+              <th className="px-3 py-3.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-widest">Sub</th>
+              <SortHeader label="Progress" sortKey="dueDate" />
             </tr>
           </thead>
 
           {quickCreate && (
             <tbody>
-              <tr className="border-b border-blue-200 bg-blue-50/50">
-                <td className="px-3 py-2" />
-                <td className="px-3 py-2 text-xs text-blue-400">+</td>
-                <td className="px-3 py-2" />
-                <td className="px-3 py-2" colSpan={14}>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+              <tr className="border-b border-primary/20 bg-primary/[0.03]">
+                <td className="px-3 py-2.5" />
+                <td className="px-3 py-2.5">
+                  <Wand2 className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
+                </td>
+                <td className="px-3 py-2.5" />
+                <td className="px-3 py-2.5" colSpan={12}>
+                  <div className="flex items-center gap-2.5">
+                    <Badge variant="primary" size="sm">
                       {quickCreateType.replace("_", " ")}
-                    </span>
+                    </Badge>
                     <input
                       type="text"
                       value={quickCreateTitle}
                       onChange={(e) => setQuickCreateTitle(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleQuickCreate(); if (e.key === "Escape") { setQuickCreate(false); setQuickCreateTitle(""); } }}
                       placeholder="What needs to be done?"
-                      className="flex-1 rounded border-0 bg-transparent px-2 py-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
+                      className="flex-1 rounded-lg border-0 bg-transparent px-2 py-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
                       autoFocus
                     />
-                    <button onClick={handleQuickCreate} className="rounded bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800">Create</button>
-                    <button onClick={() => { setQuickCreate(false); setQuickCreateTitle(""); }} className="rounded px-2 py-1 text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                    <button
+                      onClick={handleQuickCreate}
+                      className="rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary/90 active:scale-[0.97]"
+                    >
+                      Create
+                    </button>
+                    <button
+                      onClick={() => { setQuickCreate(false); setQuickCreateTitle(""); }}
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -660,25 +836,49 @@ export function ListView({
           {filtered.length === 0 && !quickCreate ? (
             <tbody>
               <tr>
-                <td colSpan={15} className="py-16 text-center">
-                  <p className="text-sm text-gray-400">No tasks match the current filters.</p>
-                  <button
-                    onClick={() => setQuickCreate(true)}
-                    className="mt-3 inline-flex items-center gap-1 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                    Create first task
-                  </button>
+                <td colSpan={16} className="py-20 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
+                      <Search className="h-6 w-6 text-gray-400" strokeWidth={1.5} />
+                    </div>
+                    <p className="text-sm font-medium text-gray-500">No tasks match the current filters</p>
+                    <button
+                      onClick={() => setQuickCreate(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary/90 active:scale-[0.97]"
+                    >
+                      <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      Create first task
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           ) : (
             <>
-              {grouped.epicTasks.map((epic) => renderRow(epic))}
-              {grouped.standalone.filter((t) => t.type !== "EPIC").map((t) => renderRow(t))}
+              {visibleEpics.map((epic, idx) =>
+                renderTaskRow(epic, 0, idx < visibleEpics.length - 1, [])
+              )}
+              {visibleStandalone.length > 0 && (
+                <>
+                  {visibleStandalone.map((t, idx) =>
+                    renderTaskRow(t, 0, idx < visibleStandalone.length - 1, [])
+                  )}
+                </>
+              )}
             </>
           )}
         </table>
+        {!quickCreate && filtered.length > 0 && (
+          <div className="border-t border-gray-100 px-4 py-3">
+            <button
+              onClick={() => setQuickCreate(true)}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Create task
+            </button>
+          </div>
+        )}
       </div>
 
       {selectedTask && (

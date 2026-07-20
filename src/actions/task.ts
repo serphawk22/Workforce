@@ -29,8 +29,6 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   if (due) raw.dueDate = due;
   const sprint = formData.get("sprintId");
   if (sprint) raw.sprintId = sprint;
-  const storyPts = formData.get("storyPoints");
-  if (storyPts) raw.storyPoints = parseInt(storyPts as string) || 0;
   const labelIdList = formData.getAll("labelIds");
   if (labelIdList.length) raw.labelIds = labelIdList;
   const projectIdField = formData.get("projectId");
@@ -39,7 +37,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   const parsed = createTaskSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  const { columnId: rawColumnId, title, description, type, epicId, priority, assigneeId, reporterId, dueDate, sprintId, labelIds, projectId, storyPoints } = parsed.data;
+  const { columnId: rawColumnId, title, description, type, epicId, priority, assigneeId, reporterId, dueDate, sprintId, labelIds, projectId } = parsed.data;
 
   let columnId = rawColumnId;
   let projectIdResolved: string;
@@ -92,7 +90,6 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
       reporterId: reporterId || session.user.id,
       dueDate: dueDate ? new Date(dueDate) : null,
       sprintId: sprintId || null,
-      storyPoints: storyPoints ?? 0,
       issueKey: code,
       order: (maxOrder._max.order ?? -1) + 1,
       ...(labelIds && labelIds.length > 0
@@ -146,8 +143,6 @@ export async function updateTask(formData: FormData) {
   if (colField !== null) raw.columnId = colField;
   const sprintField = formData.get("sprintId");
   raw.sprintId = sprintField !== "" ? sprintField : null;
-  const storyPtsField = formData.get("storyPoints");
-  if (storyPtsField !== null && storyPtsField !== "") raw.storyPoints = parseInt(storyPtsField as string) || 0;
   const githubLinkField = formData.get("githubLink");
   if (githubLinkField !== null) raw.githubLink = githubLinkField;
   const prodUrlField = formData.get("productionUrl");
@@ -156,7 +151,7 @@ export async function updateTask(formData: FormData) {
   const parsed = updateTaskSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  const { id, title, description, type, epicId, priority, assigneeId, dueDate, columnId, sprintId, storyPoints, githubLink, productionUrl } = parsed.data;
+  const { id, title, description, type, epicId, priority, assigneeId, dueDate, columnId, sprintId, githubLink, productionUrl } = parsed.data;
 
   const existing = await prisma.task.findUnique({
     where: { id },
@@ -175,7 +170,6 @@ export async function updateTask(formData: FormData) {
   if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
   if (columnId !== undefined) data.columnId = columnId;
   if (sprintId !== undefined) data.sprintId = sprintId || null;
-  if (storyPoints !== undefined) data.storyPoints = storyPoints;
   if (githubLink !== undefined) data.githubLink = githubLink || null;
   if (productionUrl !== undefined) data.productionUrl = productionUrl || null;
 

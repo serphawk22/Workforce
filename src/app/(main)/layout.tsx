@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
-import { JiraNav } from "@/components/jira-nav";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { AppNavbar } from "@/components/layout/app-navbar";
 
 export default async function MainLayout({
   children,
@@ -22,9 +23,14 @@ export default async function MainLayout({
   });
 
   return (
-    <div className="min-h-screen bg-white">
-      <JiraNav members={members} projects={projects} workspaces={workspaces} />
-      {children}
+    <div className="flex min-h-screen bg-background">
+      <AppSidebar />
+      <div className="flex flex-1 flex-col ml-[280px] transition-all duration-200">
+        <AppNavbar members={members} projects={projects} />
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

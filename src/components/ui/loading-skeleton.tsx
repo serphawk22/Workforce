@@ -1,33 +1,41 @@
-interface LoadingSkeletonProps {
-  className?: string;
-  count?: number;
-}
-
-export function LoadingSkeleton({ className = "h-4 w-full", count = 1 }: LoadingSkeletonProps) {
+export function LoadingSkeleton({ className = "" }: { className?: string }) {
   return (
-    <>
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={`animate-pulse rounded bg-gray-200 ${className}`} aria-hidden="true" />
-      ))}
-    </>
+    <div className={`animate-pulse rounded-xl bg-gray-100 ${className}`} />
   );
 }
 
 export function CardSkeleton() {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-      <LoadingSkeleton className="h-5 w-2/3" />
-      <LoadingSkeleton className="h-4 w-full" />
-      <LoadingSkeleton className="h-4 w-4/5" />
+    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="flex items-center justify-between mb-4">
+        <LoadingSkeleton className="h-4 w-32" />
+        <LoadingSkeleton className="h-6 w-6 rounded-lg" />
+      </div>
+      <div className="space-y-3">
+        <LoadingSkeleton className="h-3 w-full" />
+        <LoadingSkeleton className="h-3 w-3/4" />
+        <LoadingSkeleton className="h-3 w-1/2" />
+      </div>
     </div>
   );
 }
 
-export function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="flex gap-4 py-3">
-      {Array.from({ length: cols }).map((_, i) => (
-        <LoadingSkeleton key={i} className={`h-4 ${i === 0 ? "w-1/3" : "w-1/6"}`} />
+    <div className="space-y-2">
+      <div className="flex gap-4 p-4">
+        <LoadingSkeleton className="h-4 w-1/4" />
+        <LoadingSkeleton className="h-4 w-1/4" />
+        <LoadingSkeleton className="h-4 w-1/4" />
+        <LoadingSkeleton className="h-4 w-1/4" />
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-4 p-4">
+          <LoadingSkeleton className="h-4 w-1/4" />
+          <LoadingSkeleton className="h-4 w-1/4" />
+          <LoadingSkeleton className="h-4 w-1/4" />
+          <LoadingSkeleton className="h-4 w-1/4" />
+        </div>
       ))}
     </div>
   );

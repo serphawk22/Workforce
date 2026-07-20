@@ -27,8 +27,34 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-white text-gray-900">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else if (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                  }
+                } catch(e) {}
+                try {
+                  var origMeasure = performance.measure;
+                  performance.measure = function() {
+                    try { return origMeasure.apply(this, arguments); }
+                    catch(e) { return undefined; }
+                  };
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>{children}</Providers>
       </body>
     </html>

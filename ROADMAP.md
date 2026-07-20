@@ -8,7 +8,7 @@
 - **Board**: DnD Kanban with dynamic columns per project
 - **Task detail**: Right-side modal with edit/view toggle, timeline, comments
 - **Google Sheets**: One-way sync, bidirectional partially built
-- **Database**: Task has date fields but no issueKey, storyPoints, activity log, attachments, notifications
+- **Database**: Task has date fields but no issueKey, activity log, attachments, notifications
 
 ---
 
@@ -21,10 +21,10 @@ New models needed:
 | `ActivityLog` | id, taskId, userId, action, fieldName, oldValue, newValue, metadata, createdAt | Track all events chronologically |
 | `Attachment` | id, taskId, fileName, fileSize, fileType, url, uploadedById, createdAt | File uploads |
 | `Notification` | id, userId, type, title, message, taskId, read, createdAt | In-app notifications |
-| Task model additions | `issueKey` (String?), `storyPoints` (Int?), `attachmentCount` (Int, computed) | Jira-style fields |
+| Task model additions | `issueKey` (String?), `attachmentCount` (Int, computed) | Jira-style fields |
 
 **Changes to existing models**:
-- `Task`: Add `issueKey String? @unique`, `storyPoints Int @default(0)`
+- `Task`: Add `issueKey String? @unique`
 - Generate issue keys like `PROJ-1`, `PROJ-2` etc. per project
 
 ---
@@ -148,7 +148,7 @@ Enhance the existing `TaskDetailModal` to be a full-featured right-side drawer.
 ### Required enhancements
 - Show Issue Key prominently (e.g., `PROJ-42`)
 - Tabs: Details / Activity
-- Details tab: Summary, Description, Status, Priority, Assignee, Reporter, Sprint, Story Points, Due Date, Labels, GitHub Link, Production URL, Attachments
+- Details tab: Summary, Description, Status, Priority, Assignee, Reporter, Sprint, Due Date, Labels, GitHub Link, Production URL, Attachments
 - Activity tab: Chronological feed of all events (from ActivityLog)
 - Comments section at the bottom (already exists)
 - Reassignment History section (already exists)

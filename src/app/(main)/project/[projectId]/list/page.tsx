@@ -89,7 +89,6 @@ export default async function ProjectListPage(props: {
         dueDate: t.dueDate?.toISOString() || null,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
-        storyPoints: t.storyPoints,
         githubLink: t.githubLink,
         productionUrl: t.productionUrl,
         dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,

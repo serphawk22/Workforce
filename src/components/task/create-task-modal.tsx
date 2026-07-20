@@ -36,7 +36,6 @@ export function CreateTaskModal({
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [epicId, setEpicId] = useState("");
-  const [storyPoints, setStoryPoints] = useState(0);
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || "");
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,7 +74,6 @@ export function CreateTaskModal({
     formData.set("priority", priority);
     formData.set("assigneeId", assigneeId);
     if (epicId) formData.set("epicId", epicId);
-    if (storyPoints > 0) formData.set("storyPoints", String(storyPoints));
     if (isGlobalCreate) formData.set("projectId", selectedProjectId);
     if (dueDate) formData.set("dueDate", new Date(dueDate).toISOString());
     selectedLabelIds.forEach((id) => formData.append("labelIds", id));
@@ -223,23 +221,17 @@ export function CreateTaskModal({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          {issueType === "TASK" && epics && epics.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Story Points</label>
-              <input type="number" min={0} value={storyPoints} onChange={(e) => setStoryPoints(parseInt(e.target.value) || 0)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-all hover:border-gray-400 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900" />
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Epic</label>
+              <select value={epicId} onChange={(e) => setEpicId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-all hover:border-gray-400 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900">
+                <option value="">No epic</option>
+                {epics.map((e: EpicItem) => (
+                  <option key={e.id} value={e.id}>{e.issueKey || e.title}</option>
+                ))}
+              </select>
             </div>
-            {issueType === "TASK" && epics && epics.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Epic</label>
-                <select value={epicId} onChange={(e) => setEpicId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-all hover:border-gray-400 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900">
-                  <option value="">No epic</option>
-                  {epics.map((e: EpicItem) => (
-                    <option key={e.id} value={e.id}>{e.issueKey || e.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

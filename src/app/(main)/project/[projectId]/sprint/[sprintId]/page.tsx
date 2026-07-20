@@ -69,7 +69,6 @@ export default async function SprintPage(props: {
     id: col.id,
     name: col.name,
     tasks: col.tasks
-      .filter((t) => !t.code || !t.code.includes("_"))
       .map((t) => ({
         id: t.id,
         title: t.title,

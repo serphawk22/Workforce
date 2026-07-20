@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "./modal";
 import { Button } from "./button";
+import { Input } from "./input";
 
 interface PromptDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (value: string) => void;
   title: string;
-  message?: string;
-  defaultValue?: string;
   placeholder?: string;
   confirmLabel?: string;
-  cancelLabel?: string;
+  initialValue?: string;
 }
 
 export function PromptDialog({
@@ -21,49 +19,42 @@ export function PromptDialog({
   onClose,
   onConfirm,
   title,
-  message,
-  defaultValue = "",
   placeholder = "",
   confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  initialValue = "",
 }: PromptDialogProps) {
-  const [value, setValue] = useState(defaultValue);
+  const [value, setValue] = useState(initialValue);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (value.trim()) {
-      onConfirm(value.trim());
-      setValue("");
-    }
-  }
-
-  function handleClose() {
-    setValue("");
-    onClose();
-  }
+  if (!open) return null;
 
   return (
-    <Modal open={open} onClose={handleClose} title={title}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {message && (
-          <p className="text-sm text-gray-600">{message}</p>
-        )}
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
-          autoFocus
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 transition-all hover:border-gray-400 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
-        />
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" type="button" onClick={handleClose}>
-            {cancelLabel}
-          </Button>
-          <Button type="submit" disabled={!value.trim()}>
-            {confirmLabel}
-          </Button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-sm animate-slide-in-up">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/10 p-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">{title}</h3>
+          <Input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) { onConfirm(value.trim()); setValue(""); } }}
+          />
+          <div className="mt-4 flex justify-end gap-3">
+            <Button variant="secondary" size="sm" onClick={() => { onClose(); setValue(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => { if (value.trim()) { onConfirm(value.trim()); setValue(""); } }}
+              disabled={!value.trim()}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
         </div>
-      </form>
-    </Modal>
+      </div>
+    </div>
   );
 }

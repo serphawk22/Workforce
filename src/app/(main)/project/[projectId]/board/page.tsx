@@ -71,7 +71,6 @@ export default async function ProjectBoardPage(props: {
     name: col.name,
     tasks: col.tasks
       .filter((t) => {
-        if (t.code && t.code.includes("_")) return false;
         if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
         if (priorityFilter && t.priority !== priorityFilter) return false;
         if (labelFilter && !t.labels.some((l) => l.label.id === labelFilter)) return false;
