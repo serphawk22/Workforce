@@ -1,10 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authorization";
 import { Badge } from "@/components/ui/badge";
-
-function getMonthKey(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-}
+import { getMonthKey } from "@/lib/dates";
 
 export default async function AnalyticsPage() {
   await requireAdmin();

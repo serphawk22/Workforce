@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const issueTypes = ["EPIC", "TASK", "STORY", "BUG", "FEATURE_REQUEST", "IMPROVEMENT", "SUBTASK"] as const;
+const issueTypes = ["EPIC", "TASK", "STORY", "BUG", "FEATURE_REQUEST", "IMPROVEMENT", "SUBTASK"] as const;
 
 export const createTaskSchema = z.object({
   columnId: z.string(),
@@ -107,11 +107,6 @@ export const removeTaskFromSprintSchema = z.object({
   taskId: z.string(),
 });
 
-export const updateProfileSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  avatarUrl: z.string().url().optional().or(z.literal("")),
-});
-
 export const updateProfileSettingsSchema = z.object({
   displayName: z.string().max(100).optional(),
   password: z.string().min(6).max(100).optional(),
@@ -120,8 +115,4 @@ export const updateProfileSettingsSchema = z.object({
   notificationPreferences: z.string().optional(),
 });
 
-export const createEmployeeSchema = z.object({
-  name: z.string().min(1).max(100),
-  email: z.string().email(),
-  role: z.enum(["EMPLOYEE", "ADMIN"]).default("EMPLOYEE"),
-});
+

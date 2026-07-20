@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
 import { ReportsView } from "@/components/reports/reports-view";
+import { getMonthKey } from "@/lib/dates";
 
 export default async function ReportsPage() {
   const session = await requireSetup();
@@ -39,10 +40,6 @@ export default async function ReportsPage() {
   const projectCounts: Record<string, { id: string; name: string; count: number }> = {};
   const employeeCounts: Record<string, { name: string; count: number; completed: number }> = {};
   const monthlyCounts: Record<string, { created: number; completed: number }> = {};
-
-  function getMonthKey(date: Date): string {
-    return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-  }
 
   for (const t of tasks) {
     statusCounts[t.column.name] = (statusCounts[t.column.name] || 0) + 1;

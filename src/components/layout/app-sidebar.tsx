@@ -44,7 +44,6 @@ const adminLinks = [
   { href: "/admin/employee-tracking", label: "Employee Work Tracking", icon: Activity },
   { href: "/admin/daily-work", label: "Daily Work Tracker", icon: ClipboardList },
   { href: "/admin/team", label: "Teams", icon: Users },
-  { href: "/admin/work-updates", label: "Work Updates", icon: Clock },
   { href: "/admin/all-tasks", label: "All Tasks", icon: CheckSquare },
   { href: "/admin/all-projects", label: "All Projects", icon: FolderKanban },
   { href: "/admin/workload", label: "Time Tracking", icon: Clock },
