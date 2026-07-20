@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { addProjectMember, removeProjectMember } from "@/actions/project-members";
 
 type MemberItem = {
@@ -32,6 +33,7 @@ export function ProjectMembersClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +54,6 @@ export function ProjectMembersClient({
   }
 
   async function handleRemove(userId: string, name: string) {
-    if (!confirm(`Remove ${name} from this project?`)) return;
     setRemoving(userId);
     setError("");
 
@@ -102,7 +103,7 @@ export function ProjectMembersClient({
             <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{m.role}</span>
             {canManage && m.userId !== currentUserId && m.role !== "OWNER" && (
               <button
-                onClick={() => handleRemove(m.userId, m.name)}
+                onClick={() => setConfirmRemove({ userId: m.userId, name: m.name })}
                 disabled={removing === m.userId}
                 className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
               >
@@ -115,6 +116,19 @@ export function ProjectMembersClient({
           <p className="py-8 text-center text-sm text-gray-400">No members</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmRemove !== null}
+        onClose={() => setConfirmRemove(null)}
+        onConfirm={() => {
+          if (confirmRemove) handleRemove(confirmRemove.userId, confirmRemove.name);
+          setConfirmRemove(null);
+        }}
+        title="Remove Member"
+        message={confirmRemove ? `Remove ${confirmRemove.name} from this project?` : ""}
+        confirmLabel="Remove"
+        danger
+      />
     </div>
   );
 }
