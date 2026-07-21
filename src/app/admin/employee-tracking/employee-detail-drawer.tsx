@@ -412,7 +412,7 @@ export function EmployeeDetailDrawer({ employee, onClose }: { employee: Employee
                         <div key={ds.id} className="rounded-lg border border-gray-100 p-3">
                           <div className="flex items-start justify-between mb-2">
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs text-gray-400">
                                   {new Date(ds.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                                 </span>
@@ -422,11 +422,33 @@ export function EmployeeDetailDrawer({ employee, onClose }: { employee: Employee
                               </div>
                               <p className="text-sm font-medium text-gray-900 mt-0.5">{ds.taskTitle || ds.projectName || "Daily Work"}</p>
                             </div>
+                            <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ds.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700" : ds.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700" : ds.status === "BLOCKED" ? "bg-red-50 text-red-700" : ds.status === "NEED_REVIEW" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-600"}`}>
+                                {ds.status ? ds.status.replace(/_/g, " ") : "N/A"}
+                              </span>
+                            </div>
                           </div>
                           <div className="space-y-1 text-sm text-gray-700">
                             <p><span className="font-medium">Today:</span> {ds.todayWork}</p>
                             {ds.blockers && <p><span className="font-medium">Blockers:</span> {ds.blockers}</p>}
                             <p><span className="font-medium">Tomorrow:</span> {ds.tomorrowTask}</p>
+                            <p><span className="font-medium">Completed:</span> {ds.todayWorkCompleted === "YES" ? "Yes" : ds.todayWorkCompleted === "PARTIALLY" ? "Partially" : ds.todayWorkCompleted === "NO" ? "No" : ds.todayWorkCompleted || "-"}</p>
+                            {(() => {
+                              try {
+                                const links = JSON.parse(ds.referenceLinks || "[]") as { type: string; url: string }[];
+                                if (!Array.isArray(links) || links.length === 0) return null;
+                                return (
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {links.map((link, i) => (
+                                      <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                        {link.type === "github" || link.url.includes("github") ? <GitBranch className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+                                        {link.type || "Link"}
+                                      </a>
+                                    ))}
+                                  </div>
+                                );
+                              } catch { return null; }
+                            })()}
                             {yesterdayPlan.length > 0 && (
                               <div>
                                 <span className="font-medium">Yesterday:</span>

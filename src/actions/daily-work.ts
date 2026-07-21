@@ -56,23 +56,24 @@ export async function submitDailyWork(formData: FormData) {
 
   await prisma.dailyWorkEntry.create({
     data: {
-      employeeId,
-      projectId: projectId || null,
-      taskId: resolvedTaskId,
+      employee: { connect: { id: employeeId } },
+      project: projectId ? { connect: { id: projectId } } : undefined,
+      task: resolvedTaskId ? { connect: { id: resolvedTaskId } } : undefined,
       todayWork: todayWork.trim(),
       todayWorkCompleted,
-      yesterdayPlan: yesterdayPlan || null,
-      yesterdayCompleted: yesterdayCompleted || null,
+      yesterdayPlan: yesterdayPlan || undefined,
+      yesterdayCompleted: yesterdayCompleted || undefined,
       tomorrowTask: tomorrowTask.trim(),
-      status,
-      blockers: blockers || null,
-      referenceLinks: referenceLinks || null,
-      attachments: attachments || null,
+      status: status || "IN_PROGRESS",
+      blockers: blockers || undefined,
+      referenceLinks: referenceLinks || undefined,
+      attachments: attachments || undefined,
     },
   });
 
   revalidatePath("/daily-work");
   revalidatePath("/admin/daily-work");
+  revalidatePath("/admin/employee-tracking");
   return { success: true };
 }
 

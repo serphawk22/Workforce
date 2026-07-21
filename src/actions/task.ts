@@ -118,7 +118,9 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
     });
   }
 
-  revalidatePath(`/project/${projectIdResolved}`);
+  revalidatePath(`/project/${projectIdResolved}/board`);
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/all-tasks");
   return { id: task.id };
 }
 
@@ -220,7 +222,9 @@ export async function updateTask(formData: FormData) {
     });
   }
 
-  revalidatePath(`/project/${existing.column.board.projectId}`);
+  revalidatePath(`/project/${existing.column.board.projectId}/board`);
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/all-tasks");
   return { success: true };
 }
 
@@ -279,7 +283,8 @@ export async function moveTask(formData: FormData) {
     newValue: newColumnName,
   });
 
-  revalidatePath(`/project/${task.column.board.projectId}`);
+  revalidatePath(`/project/${task.column.board.projectId}/board`);
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -296,6 +301,7 @@ export async function deleteTask(formData: FormData) {
   if (task.column.board.project.workspace.members.length === 0) return { error: { _form: ["Not authorized"] } };
 
   await prisma.task.delete({ where: { id: taskId } });
-  revalidatePath(`/project/${task.column.board.projectId}`);
+  revalidatePath(`/project/${task.column.board.projectId}/board`);
+  revalidatePath("/dashboard");
   return { success: true };
 }

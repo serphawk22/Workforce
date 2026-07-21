@@ -14,7 +14,6 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  Clock,
   FileText,
   Settings,
   ChevronLeft,
@@ -36,7 +35,6 @@ const employeeLinks = [
   { href: "/my-projects", label: "Projects", icon: FolderKanban },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/analytics", label: "Analytics", icon: TrendingUp },
 ];
 
 const adminLinks = [
@@ -46,7 +44,6 @@ const adminLinks = [
   { href: "/admin/team", label: "Teams", icon: Users },
   { href: "/admin/all-tasks", label: "All Tasks", icon: CheckSquare },
   { href: "/admin/all-projects", label: "All Projects", icon: FolderKanban },
-  { href: "/admin/workload", label: "Time Tracking", icon: Clock },
   { href: "/admin/analytics", label: "Analytics", icon: TrendingUp },
 ];
 

@@ -31,7 +31,7 @@ export async function createSubtask(taskId: string, title: string) {
     metadata: { subtaskId: subtask.id, title, code },
   });
 
-  revalidatePath(`/project/${task.column.board.projectId}`);
+  revalidatePath(`/project/${task.column.board.projectId}/board`);
   return { subtask: { id: subtask.id, code: subtask.code, title: subtask.title, status: subtask.status, createdAt: subtask.createdAt.toISOString(), updatedAt: subtask.updatedAt.toISOString() } };
 }
 
@@ -57,7 +57,7 @@ export async function updateSubtaskStatus(subtaskId: string, status: string) {
     metadata: { subtaskId, title: subtask.title },
   });
 
-  revalidatePath(`/project/${subtask.task.column.board.projectId}`);
+  revalidatePath(`/project/${subtask.task.column.board.projectId}/board`);
   return { success: true };
 }
 

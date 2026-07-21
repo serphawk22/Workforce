@@ -72,6 +72,8 @@ import { EmployeeTrackingClient } from "./employee-tracking-client";
     taskTitle: string | null;
     taskCode: string | null;
     todayWork: string;
+    todayWorkCompleted: string;
+    status: string;
     yesterdayPlan: string | null;
     yesterdayCompleted: string | null;
     tomorrowTask: string;
@@ -253,6 +255,8 @@ export default async function EmployeeTrackingPage() {
         taskTitle: dwe.task?.title ?? null,
         taskCode: dwe.task?.code ?? null,
         todayWork: dwe.todayWork,
+        todayWorkCompleted: dwe.todayWorkCompleted,
+        status: dwe.status,
         yesterdayPlan: dwe.yesterdayPlan,
         yesterdayCompleted: dwe.yesterdayCompleted,
         tomorrowTask: dwe.tomorrowTask,
