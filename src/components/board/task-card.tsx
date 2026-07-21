@@ -2,8 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MessageSquare, CalendarDays } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { GripVertical, MessageSquare, CalendarDays, ArrowUp, ArrowDown, ArrowRight, ChevronsUp, User } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { formatDate } from "@/lib/dates";
 
@@ -43,21 +42,23 @@ export function TaskCard({ task, onClick }: { task: TaskData; onClick: () => voi
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 50 : "auto",
   };
 
-  const priorityColors: Record<string, string> = {
-    CRITICAL: "bg-red-500",
-    HIGH: "bg-amber-500",
-    MEDIUM: "bg-blue-500",
-    LOW: "bg-gray-400",
-  };
-
-  const priorityLabels: Record<string, string> = {
-    CRITICAL: "Critical",
-    HIGH: "High",
-    MEDIUM: "Medium",
-    LOW: "Low",
+  const PriorityIcon = ({ priority }: { priority: string }) => {
+    switch (priority) {
+      case "CRITICAL":
+        return <ChevronsUp className="h-4 w-4 text-danger" />;
+      case "HIGH":
+        return <ArrowUp className="h-4 w-4 text-warning" />;
+      case "MEDIUM":
+        return <ArrowRight className="h-4 w-4 text-blue-500" />;
+      case "LOW":
+        return <ArrowDown className="h-4 w-4 text-muted-foreground" />;
+      default:
+        return <ArrowRight className="h-4 w-4 text-muted-foreground" />;
+    }
   };
 
   return (
@@ -65,68 +66,76 @@ export function TaskCard({ task, onClick }: { task: TaskData; onClick: () => voi
       ref={setNodeRef}
       style={style}
       onClick={onClick}
-      className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
+      className={`group relative rounded-lg border bg-card p-3 shadow-sm transition-all duration-200 cursor-pointer 
+        ${isDragging ? 'border-primary ring-1 ring-primary/20 shadow-xl' : 'border-border hover:border-primary/30 hover:shadow-md'}`}
     >
-      <div className="flex items-start gap-2 mb-3">
+      <div className="flex items-start gap-2 mb-2">
         <button
           {...attributes}
           {...listeners}
-          className="mt-0.5 text-gray-300 hover:text-gray-500 transition-colors cursor-grab active:cursor-grabbing"
+          className="mt-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 absolute left-1 top-3"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
+        <div className="flex-1 min-w-0 pl-4">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <PriorityIcon priority={task.priority} />
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              {task.code || task.issueKey || "TASK"}
+            </p>
+          </div>
+          <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">
             {task.title}
           </p>
-          {task.code && (
-            <p className="text-xs text-gray-400 mt-0.5 font-mono">{task.code}</p>
-          )}
         </div>
       </div>
 
       {task.labels.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3 px-1">
+        <div className="flex flex-wrap gap-1.5 mb-3 pl-4">
           {task.labels.slice(0, 3).map((label) => (
             <span
               key={label.id}
-              className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+              className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
               style={{ backgroundColor: label.color + "20", color: label.color }}
             >
               {label.name}
             </span>
           ))}
           {task.labels.length > 3 && (
-            <span className="text-xs text-gray-400">+{task.labels.length - 3}</span>
+            <span className="text-[10px] text-muted-foreground">+{task.labels.length - 3}</span>
           )}
         </div>
       )}
 
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${priorityColors[task.priority] || "bg-gray-400"}`} title={priorityLabels[task.priority] || task.priority} />
+      <div className="flex items-center justify-between pl-4 mt-1 border-t border-border/50 pt-2">
+        <div className="flex items-center gap-3">
           {task.dueDate && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <CalendarDays className="h-3 w-3" />
               {formatDate(new Date(task.dueDate))}
             </span>
           )}
           {task.commentCount > 0 && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <MessageSquare className="h-3 w-3" />
               {task.commentCount}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-2">
           {task.subtasks.length > 0 && (
-            <span className="text-xs text-gray-400">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
               {task.completedSubtaskCount}/{task.subtasks.length}
             </span>
           )}
-          {task.assignee && (
+        </div>
+        <div className="flex items-center">
+          {task.assignee ? (
             <Avatar name={task.assignee.name} size="sm" />
+          ) : (
+            <div className="h-6 w-6 rounded-full border border-dashed border-border flex items-center justify-center">
+              <User className="h-3 w-3 text-muted-foreground" />
+            </div>
           )}
         </div>
       </div>

@@ -80,35 +80,35 @@ export function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-2xl bg-gray-50/80 p-4 min-h-[400px] transition-all ${
+      className={`flex flex-col rounded-xl bg-muted/30 p-3 min-h-[400px] transition-all ${
         isOver ? "ring-2 ring-primary/20 bg-primary/5" : ""
       }`}
     >
-      <div className="flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-2.5">
-          <h3 className="text-sm font-semibold text-gray-900">{column.name}</h3>
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-gray-200 px-1.5 text-xs font-medium text-gray-500">
+      <div className="flex items-center justify-between mb-4 px-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-[13px] font-semibold text-foreground uppercase tracking-wider">{column.name}</h3>
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
             {column.tasks.length}
           </span>
         </div>
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-gray-200 bg-white shadow-lg shadow-gray-900/5 p-1 z-10 animate-fade-in">
+            <div className="absolute right-0 top-full mt-1 w-36 rounded-xl border border-border bg-card shadow-lg p-1 z-10 animate-fade-in">
               <button
                 onClick={() => { setShowRename(true); setShowMenu(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
               >
                 Rename
               </button>
               <button
                 onClick={() => { setShowDelete(true); setShowMenu(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"
               >
                 Delete
               </button>
@@ -127,10 +127,10 @@ export function Column({
 
       <button
         onClick={() => onAddTask?.(column.id)}
-        className="mt-3 flex items-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-2.5 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50/50 transition-all"
+        className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-2 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 transition-all"
       >
         <Plus className="h-4 w-4" />
-        Add task
+        Add Task
       </button>
 
       <PromptDialog

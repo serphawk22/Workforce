@@ -2,20 +2,46 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
+
+// Maps work-update status values → board column names
+const STATUS_COLUMN_MAP: Record<string, string> = {
+  TODO:        "To Do",
+  IN_PROGRESS: "In Progress",
+  REVIEW:      "Review",
+  TESTING:     "Testing",
+  DONE:        "Done",
+};
+
+// Auto-set date fields when status first reaches that stage
+const STATUS_DATE_FIELD: Record<string, string> = {
+  IN_PROGRESS: "dateOfDevAcceptOrStart",
+  REVIEW:      "dateOfDevComplete",
+  TESTING:     "dateOfQaOrUatStart",
+  DONE:        "dateOfReleaseToProd",
+};
 
 export async function submitDailyWork(formData: FormData) {
-  const employeeId = formData.get("employeeId") as string;
-  const projectId = formData.get("projectId") as string;
-  const taskId = formData.get("taskId") as string;
-  const todayWork = formData.get("todayWork") as string;
+  const employeeId      = formData.get("employeeId") as string;
+  const projectId       = formData.get("projectId") as string;
+  const taskId          = formData.get("taskId") as string;
+  const todayWork       = formData.get("todayWork") as string;
   const todayWorkCompleted = formData.get("todayWorkCompleted") as string;
-  const tomorrowTask = formData.get("tomorrowTask") as string;
-  const status = formData.get("status") as string;
-  const blockers = formData.get("blockers") as string;
-  const yesterdayPlan = formData.get("yesterdayPlan") as string;
+  const tomorrowTask    = formData.get("tomorrowTask") as string;
+  const blockers        = formData.get("blockers") as string;
+  const yesterdayPlan   = formData.get("yesterdayPlan") as string;
   const yesterdayCompleted = formData.get("yesterdayCompleted") as string;
-  const referenceLinks = formData.get("referenceLinks") as string;
-  const attachments = formData.get("attachments") as string;
+  const referenceLinks  = formData.get("referenceLinks") as string;
+  const attachments     = formData.get("attachments") as string;
+
+  // Work-update fields (new)
+  const workStatus      = formData.get("status") as string | null;
+  const subtaskId       = formData.get("subtaskId") as string | null;
+  const progressNotes   = formData.get("progressNotes") as string | null;
+  const githubLink      = formData.get("githubLink") as string | null;
+  const productionUrl   = formData.get("productionUrl") as string | null;
+  const timeSpentHours  = parseFloat(formData.get("timeSpent") as string || "0");
+  const timeSpent       = Math.round(timeSpentHours * 60); // store as minutes
 
   if (!employeeId) return { error: "Employee name is required" };
   if (!todayWork?.trim()) return { error: "Today's work is required" };
@@ -23,6 +49,7 @@ export async function submitDailyWork(formData: FormData) {
 
   let resolvedTaskId = taskId || null;
 
+  // ── Create new task if requested ──────────────────────────────────────────
   if (taskId === "__new__") {
     const newTaskTitle = formData.get("newTaskTitle") as string;
     if (!newTaskTitle?.trim()) return { error: "New task title is required" };
@@ -54,26 +81,89 @@ export async function submitDailyWork(formData: FormData) {
     resolvedTaskId = newTask.id;
   }
 
+  // ── Save daily work entry ─────────────────────────────────────────────────
   await prisma.dailyWorkEntry.create({
     data: {
-      employee: { connect: { id: employeeId } },
-      project: projectId ? { connect: { id: projectId } } : undefined,
-      task: resolvedTaskId ? { connect: { id: resolvedTaskId } } : undefined,
-      todayWork: todayWork.trim(),
+      employee:     { connect: { id: employeeId } },
+      project:      projectId ? { connect: { id: projectId } } : undefined,
+      task:         resolvedTaskId ? { connect: { id: resolvedTaskId } } : undefined,
+      todayWork:    todayWork.trim(),
       todayWorkCompleted,
-      yesterdayPlan: yesterdayPlan || undefined,
+      yesterdayPlan:     yesterdayPlan || undefined,
       yesterdayCompleted: yesterdayCompleted || undefined,
       tomorrowTask: tomorrowTask.trim(),
-      status: status || "IN_PROGRESS",
-      blockers: blockers || undefined,
+      status:       workStatus || "IN_PROGRESS",
+      blockers:     blockers || undefined,
       referenceLinks: referenceLinks || undefined,
-      attachments: attachments || undefined,
+      attachments:  attachments || undefined,
     },
   });
+
+  // ── Also create a WorkUpdate + move task column when a real task is linked ─
+  if (resolvedTaskId && workStatus) {
+    const task = await prisma.task.findUnique({
+      where: { id: resolvedTaskId },
+      include: { column: { include: { board: true } } },
+    });
+
+    if (task) {
+      const columnName  = STATUS_COLUMN_MAP[workStatus] ?? workStatus;
+      const targetColumn = await prisma.column.findFirst({
+        where: { boardId: task.column.boardId, name: columnName },
+      });
+
+      const dateField = STATUS_DATE_FIELD[workStatus];
+      const dateUpdate: Record<string, Date> = {};
+      if (dateField && !(task as Record<string, unknown>)[dateField]) {
+        dateUpdate[dateField] = new Date();
+      }
+
+      await prisma.task.update({
+        where: { id: resolvedTaskId },
+        data: {
+          ...(targetColumn ? { columnId: targetColumn.id } : {}),
+          ...dateUpdate,
+          ...(githubLink    ? { githubLink }    : {}),
+          ...(productionUrl ? { productionUrl } : {}),
+        },
+      });
+
+      await prisma.workUpdate.create({
+        data: {
+          taskId:       resolvedTaskId,
+          userId:       employeeId,
+          subtaskId:    subtaskId || null,
+          status:       workStatus,
+          progressNotes: progressNotes || null,
+          workSummary:  todayWork.trim() || null,
+          githubLink:   githubLink || null,
+          productionUrl: productionUrl || null,
+          timeSpent,
+        },
+      });
+
+      await logActivity(resolvedTaskId, employeeId, "work_update", {
+        fieldName: "status",
+        oldValue:  task.column.name,
+        newValue:  columnName,
+        metadata: {
+          subtaskId:  subtaskId || undefined,
+          timeSpent:  String(timeSpent),
+          hasNotes:   progressNotes ? "true" : "false",
+          source:     "daily_work",
+        },
+      });
+
+      // Revalidate the project board so the card moves visually
+      revalidatePath(`/project/${task.column.board.projectId}`);
+      revalidatePath(`/project/${task.column.board.projectId}/board`);
+    }
+  }
 
   revalidatePath("/daily-work");
   revalidatePath("/admin/daily-work");
   revalidatePath("/admin/employee-tracking");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

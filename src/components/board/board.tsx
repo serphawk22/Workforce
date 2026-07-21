@@ -261,7 +261,7 @@ export function Board({
         <div className="flex-shrink-0 w-72">
           <button
             onClick={() => setShowColumnPrompt(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 p-4 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50/50 transition-all min-h-[100px]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/50 transition-all min-h-[100px]"
           >
             <Plus className="h-4 w-4" />
             Add Column
@@ -271,13 +271,13 @@ export function Board({
 
       <DragOverlay>
         {activeItem ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-2xl w-72">
-            <p className="text-sm font-medium text-gray-900">{activeItem.title}</p>
+          <div className="rounded-xl border border-primary/20 bg-card p-4 shadow-2xl w-72 rotate-3 scale-105 transition-transform cursor-grabbing">
+            <p className="text-sm font-medium text-foreground">{activeItem.title}</p>
             {activeItem.type === "task" && activeItem.subtaskCount > 0 && (
-              <p className="mt-1 text-xs text-gray-400">{activeItem.subtaskCount} subtask{activeItem.subtaskCount !== 1 ? "s" : ""}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{activeItem.subtaskCount} subtask{activeItem.subtaskCount !== 1 ? "s" : ""}</p>
             )}
             {activeItem.type === "subtask" && (
-              <p className="mt-1 text-xs text-gray-400">Subtask</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Subtask</p>
             )}
           </div>
         ) : null}

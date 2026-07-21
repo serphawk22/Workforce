@@ -58,28 +58,28 @@ export function AppNavbar({
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-[72px] border-b border-gray-200 bg-white/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 h-14 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="flex h-full items-center justify-between px-6">
           <div className="flex items-center gap-4">
             {breadcrumbs.length > 0 && (
               <nav className="flex items-center gap-1.5 text-sm">
                 <Link
                   href="/dashboard"
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <LayoutDashboard className="h-4 w-4" />
                 </Link>
                 {breadcrumbs.map((crumb) => (
                   <span key={crumb.href} className="flex items-center gap-1.5">
-                    <span className="text-gray-300">/</span>
+                    <span className="text-muted-foreground/50">/</span>
                     {crumb.isLast ? (
-                      <span className="font-medium text-gray-900 truncate max-w-[200px]">
+                      <span className="font-medium text-foreground truncate max-w-[200px]">
                         {crumb.label}
                       </span>
                     ) : (
                       <Link
                         href={crumb.href}
-                        className="text-gray-500 hover:text-gray-700 transition-colors truncate max-w-[150px]"
+                        className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[150px]"
                       >
                         {crumb.label}
                       </Link>
@@ -93,21 +93,21 @@ export function AppNavbar({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSearch(!showSearch)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <Search className="h-4 w-4" />
             </button>
 
             <button
               onClick={() => router.push("/notifications")}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <Bell className="h-4 w-4" />
             </button>
 
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Create</span>
@@ -116,29 +116,29 @@ export function AppNavbar({
             <div ref={profileRef} className="relative">
               <button
                 onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-2 rounded-lg p-1 hover:bg-muted transition-colors"
               >
                 <Avatar
                   name={session?.user?.name || "User"}
                   url={session?.user?.image}
                   size="sm"
                 />
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400 hidden sm:block" />
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
               </button>
 
               {showProfile && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-200 bg-white shadow-xl shadow-gray-900/5 p-1.5 animate-fade-in">
-                  <div className="px-3 py-2 border-b border-gray-100 mb-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-card shadow-lg p-1.5 animate-fade-in">
+                  <div className="px-3 py-2 border-b border-border mb-1">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {session?.user?.name}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-[11px] text-muted-foreground truncate">
                       {session?.user?.email}
                     </p>
                   </div>
                   <button
                     onClick={() => { setShowProfile(false); router.push("/profile"); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                   >
                     <User className="h-4 w-4" />
                     Profile
@@ -146,16 +146,16 @@ export function AppNavbar({
                   {isAdmin && (
                     <button
                       onClick={() => { setShowProfile(false); router.push("/admin"); }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                     >
                       <Settings className="h-4 w-4" />
                       Admin Settings
                     </button>
                   )}
-                  <div className="border-t border-gray-100 mt-1 pt-1">
+                  <div className="border-t border-border mt-1 pt-1">
                     <button
                       onClick={() => { setShowProfile(false); router.push("/login"); }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign out
@@ -182,19 +182,19 @@ export function AppNavbar({
       {showSearch && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
           <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 bg-background/50 backdrop-blur-sm"
             onClick={() => setShowSearch(false)}
           />
           <div className="relative w-full max-w-lg">
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/10 overflow-hidden animate-slide-in-up">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                <Search className="h-4 w-4 text-gray-400" />
+            <div className="rounded-xl border border-border bg-card shadow-2xl overflow-hidden animate-slide-in-up">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+                <Search className="h-4 w-4 text-muted-foreground" />
                 <input
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search tasks, projects, people..."
-                  className="flex-1 text-sm text-gray-900 placeholder:text-gray-400 bg-transparent border-0 outline-none"
+                  className="flex-1 text-sm text-foreground placeholder:text-muted-foreground bg-transparent border-0 outline-none"
                 />
               </div>
               {searchQuery && (
@@ -204,7 +204,7 @@ export function AppNavbar({
                       setShowSearch(false);
                       router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                   >
                     <Search className="h-4 w-4" />
                     Search for &quot;{searchQuery}&quot;

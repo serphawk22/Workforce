@@ -25,7 +25,7 @@ export default async function MainLayout({
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
-      <div className="flex flex-1 flex-col ml-[280px] transition-all duration-200">
+      <div className="flex flex-1 flex-col min-w-0 transition-all duration-200">
         <AppNavbar members={members} projects={projects} />
         <main className="flex-1">
           {children}

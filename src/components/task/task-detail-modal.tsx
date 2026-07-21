@@ -242,7 +242,7 @@ export function TaskDetailModal({
   }
 
   const priorityColors: Record<string, string> = {
-    CRITICAL: "bg-red-500", HIGH: "bg-amber-500", MEDIUM: "bg-blue-500", LOW: "bg-gray-400",
+    CRITICAL: "bg-danger", HIGH: "bg-warning", MEDIUM: "bg-blue-500", LOW: "bg-muted-foreground",
   };
   const priorityLabels: Record<string, string> = {
     CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low",
@@ -256,41 +256,41 @@ export function TaskDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white shadow-2xl shadow-gray-900/20 overflow-y-auto animate-slide-in-right">
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-md">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-2xl bg-background shadow-2xl border-l border-border overflow-y-auto animate-slide-in-right">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-background/80 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className={`h-3 w-3 rounded-full ${priorityColors[task.priority] || "bg-gray-400"}`} />
+            <div className={`h-2.5 w-2.5 rounded-full ${priorityColors[task.priority] || "bg-muted-foreground"}`} />
             <div>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-semibold text-foreground uppercase tracking-wider">
                 {task.code ? `#${task.code}` : task.issueKey || "Task"}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && !editing && (
-              <Button variant="secondary" size="sm" onClick={() => setShowReassignModal(true)}>
+              <Button variant="outline" size="sm" onClick={() => setShowReassignModal(true)}>
                 Reassign
               </Button>
             )}
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         <div className="px-6 py-5">
-          <div className="flex gap-1 border-b border-gray-100 mb-6">
+          <div className="flex gap-2 border-b border-border/50 mb-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 pb-3 px-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`flex items-center gap-2 pb-3 px-4 text-sm font-medium border-b-2 transition-all ${
                     activeTab === tab.id
                       ? "border-primary text-primary"
-                      : "border-transparent text-gray-400 hover:text-gray-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -303,36 +303,36 @@ export function TaskDetailModal({
           {activeTab === "details" ? (
             <>
               {!editing ? (
-                <div className="space-y-6" onClick={() => setEditing(true)}>
+                <div className="space-y-8" onClick={() => setEditing(true)}>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">{task.title}</h2>
+                    <h2 className="text-2xl font-bold text-foreground mb-3">{task.title}</h2>
                     {description && (
-                      <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
                     )}
                   </div>
 
                   <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <div className={`h-2.5 w-2.5 rounded-full ${priorityColors[task.priority] || "bg-gray-400"}`} />
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
+                      <div className={`h-2.5 w-2.5 rounded-full ${priorityColors[task.priority] || "bg-muted-foreground"}`} />
                       {priorityLabels[task.priority] || task.priority}
                     </div>
                     {task.assignee && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <User className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
+                        <User className="h-4 w-4 text-muted-foreground" />
                         {task.assignee.name}
                       </div>
                     )}
                     {task.dueDate && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Calendar className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </div>
                     )}
                     {sprintId && (() => {
                       const s = sprints.find((sp) => sp.id === sprintId);
                       return s ? (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <GitBranch className="h-4 w-4 text-gray-400" />
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
+                          <GitBranch className="h-4 w-4 text-muted-foreground" />
                           {s.name}
                         </div>
                       ) : null;
@@ -340,9 +340,9 @@ export function TaskDetailModal({
                   </div>
 
                   {taskLabels.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {taskLabels.map((l) => (
-                        <span key={l.id} className="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: l.color + "15", color: l.color }}>
+                        <span key={l.id} className="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium border" style={{ backgroundColor: l.color + "15", color: l.color, borderColor: l.color + "30" }}>
                           {l.name}
                         </span>
                       ))}
@@ -350,28 +350,28 @@ export function TaskDetailModal({
                   )}
 
                   {(d.category || d.githubLink || d.productionUrl) && (
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+                    <div className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm">
                       {d.category && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Tag className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-500">Category:</span>
-                          <span className="text-gray-900 font-medium">{d.category}</span>
+                        <div className="flex items-center gap-3 text-sm">
+                          <Tag className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground font-medium w-24">Category:</span>
+                          <span className="text-foreground font-medium">{d.category}</span>
                         </div>
                       )}
                       {d.githubLink && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <GitBranch className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-500">GitHub:</span>
-                          <a href={d.githubLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
+                        <div className="flex items-center gap-3 text-sm">
+                          <GitBranch className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground font-medium w-24">GitHub:</span>
+                          <a href={d.githubLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1 font-medium">
                             {d.githubLink} <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       )}
                       {d.productionUrl && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Globe className="h-4 w-4 text-gray-400" />
-                          <span className="text-gray-500">Production:</span>
-                          <a href={d.productionUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
+                        <div className="flex items-center gap-3 text-sm">
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground font-medium w-24">Production:</span>
+                          <a href={d.productionUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1 font-medium">
                             {d.productionUrl} <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
@@ -381,8 +381,8 @@ export function TaskDetailModal({
 
                   {(d.createdAt || d.dateOfDevAcceptOrStart || d.dateOfDevComplete ||
                     d.dateOfQaOrUatStart || d.dateOfQaOrUatComplete || d.dateOfReleaseToProd) && (
-                    <div className="rounded-2xl border border-gray-100 p-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Timeline</p>
+                    <div className="rounded-xl border border-border p-5 bg-card shadow-sm">
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-5">Timeline</p>
                       <div className="relative pl-6">
                         <TimelineStep label="Requested" date={d.createdAt as string} isFirst />
                         <TimelineStep label="Development Started" date={d.dateOfDevAcceptOrStart as string} />
@@ -395,22 +395,22 @@ export function TaskDetailModal({
                   )}
 
                   {reassignmentHistory.length > 0 && (
-                    <div className="rounded-2xl border border-gray-100 p-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Reassignment History</p>
-                      <div className="space-y-3">
+                    <div className="rounded-xl border border-border p-5 bg-card shadow-sm">
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-5">Reassignment History</p>
+                      <div className="space-y-4">
                         {reassignmentHistory.map((h: any) => (
                           <div key={h.id} className="flex items-start gap-3 text-sm">
-                            <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                              <User className="h-3 w-3" />
+                            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-warning/10 text-warning">
+                              <User className="h-3.5 w-3.5" />
                             </div>
                             <div>
-                              <p className="text-gray-900">
-                                <span className="font-medium">{h.changedBy?.name}</span> reassigned from{' '}
+                              <p className="text-foreground">
+                                <span className="font-medium text-primary">{h.changedBy?.name}</span> reassigned from{' '}
                                 <span className="font-medium">{h.previousAssignee?.name || "Unassigned"}</span> to{' '}
-                                <span className="font-medium">{h.newAssignee?.name}</span>
+                                <span className="font-medium text-success">{h.newAssignee?.name}</span>
                               </p>
-                              {h.reason && <p className="mt-0.5 text-gray-500 italic">&ldquo;{h.reason}&rdquo;</p>}
-                              <p className="mt-0.5 text-xs text-gray-400">{formatDate(h.createdAt)}</p>
+                              {h.reason && <p className="mt-1 text-muted-foreground italic">&ldquo;{h.reason}&rdquo;</p>}
+                              <p className="mt-1 text-[11px] font-medium text-muted-foreground">{formatDate(h.createdAt)}</p>
                             </div>
                           </div>
                         ))}
@@ -419,23 +419,23 @@ export function TaskDetailModal({
                   )}
 
                   <div className="flex items-center gap-3 pt-2">
-                    <p className="text-xs text-gray-400">Click anywhere to edit...</p>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest border border-dashed border-border px-3 py-1.5 rounded-lg w-full text-center hover:bg-muted/50 transition-colors cursor-pointer">Click anywhere to edit</p>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-5">
+                <div className="space-y-5 animate-fade-in">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Title</label>
-                    <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Title</label>
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10 resize-y" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Priority</label>
-                      <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10">
+                      <label className="block text-sm font-medium text-foreground mb-1.5">Priority</label>
+                      <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
                         <option value="LOW">Low</option>
                         <option value="MEDIUM">Medium</option>
                         <option value="HIGH">High</option>
@@ -443,8 +443,8 @@ export function TaskDetailModal({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Assignee</label>
-                      <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10">
+                      <label className="block text-sm font-medium text-foreground mb-1.5">Assignee</label>
+                      <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
                         <option value="">Unassigned</option>
                         {members.map((m) => (
                           <option key={m.id} value={m.id}>{m.name}</option>
@@ -453,12 +453,12 @@ export function TaskDetailModal({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Due Date</label>
-                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Due Date</label>
+                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Sprint</label>
-                    <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10">
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Sprint</label>
+                    <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
                       <option value="">No sprint</option>
                       {sprints.map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
@@ -466,104 +466,104 @@ export function TaskDetailModal({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">GitHub Link</label>
-                    <input type="url" value={githubLink} onChange={(e) => setGithubLink(e.target.value)} placeholder="https://github.com/..." className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">GitHub Link</label>
+                    <input type="url" value={githubLink} onChange={(e) => setGithubLink(e.target.value)} placeholder="https://github.com/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Production URL</label>
-                    <input type="url" value={productionUrl} onChange={(e) => setProductionUrl(e.target.value)} placeholder="https://..." className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Production URL</label>
+                    <input type="url" value={productionUrl} onChange={(e) => setProductionUrl(e.target.value)} placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Attachments</label>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">Attachments</label>
                     {attachments.length > 0 && (
                       <div className="space-y-2 mb-3">
                         {attachments.map((a: any) => (
-                          <div key={a.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm">
-                            <FileText className="h-4 w-4 text-gray-400 shrink-0" />
-                            <span className="text-gray-700 truncate flex-1">{a.fileName}</span>
-                            <span className="text-xs text-gray-400">{(a.fileSize / 1024).toFixed(0)} KB</span>
-                            <button onClick={() => handleDeleteAttachment(a.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                          <div key={a.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-sm">
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-foreground truncate flex-1">{a.fileName}</span>
+                            <span className="text-xs text-muted-foreground">{(a.fileSize / 1024).toFixed(0)} KB</span>
+                            <button onClick={() => handleDeleteAttachment(a.id)} className="text-muted-foreground hover:text-danger transition-colors">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
                     )}
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-3 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-600 transition-colors">
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors bg-muted/10 hover:bg-muted/30">
                       <Upload className="h-4 w-4" />
                       <span>{uploading ? "Uploading..." : "Upload file"}</span>
                       <input type="file" className="hidden" onChange={handleUploadAttachment} disabled={uploading} />
                     </label>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Labels</label>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
+                    <label className="block text-sm font-medium text-foreground mb-2">Labels</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
                       {taskLabels.map((l) => (
-                        <span key={l.id} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: l.color + "15", color: l.color }}>
+                        <span key={l.id} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border" style={{ backgroundColor: l.color + "15", color: l.color, borderColor: l.color + "30" }}>
                           {l.name}
-                          <button onClick={() => handleRemoveLabel(l.id)} className="opacity-60 hover:opacity-100">
+                          <button onClick={() => handleRemoveLabel(l.id)} className="opacity-60 hover:opacity-100 hover:text-danger transition-colors">
                             <X className="h-3 w-3" />
                           </button>
                         </span>
                       ))}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {labels.filter((l) => !taskLabels.find((tl) => tl.id === l.id)).map((l) => (
                         <button
                           key={l.id}
                           onClick={() => handleAddLabel(l.id)}
-                          className="inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-gray-50"
+                          className="inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted/50"
                           style={{ borderColor: l.color + "40", color: l.color }}
                         >
                           + {l.name}
                         </button>
                       ))}
-                      <button onClick={() => setShowNewLabel(!showNewLabel)} className="inline-flex items-center rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600">
-                        <Plus className="h-3 w-3 mr-1" /> New
+                      <button onClick={() => setShowNewLabel(!showNewLabel)} className="inline-flex items-center rounded-lg border border-dashed border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground">
+                        <Plus className="h-3 w-3 mr-1" /> New Label
                       </button>
                     </div>
                     {showNewLabel && (
-                      <div className="flex items-center gap-2 mt-3">
-                        <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)} placeholder="Label name" className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
-                        <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded-xl border border-gray-200" />
-                        <Button variant="primary" size="sm" onClick={handleCreateLabel}>Add</Button>
+                      <div className="flex items-center gap-2 mt-4 p-3 bg-muted/30 rounded-lg border border-border animate-fade-in">
+                        <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)} placeholder="Label name" className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary/20" />
+                        <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="h-8 w-8 cursor-pointer rounded-md border border-border bg-background p-0.5" />
+                        <Button variant="default" size="sm" onClick={handleCreateLabel}>Add</Button>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                    <Button variant="primary" size="md" onClick={handleSave} loading={loading}>Save</Button>
-                    <Button variant="secondary" size="md" onClick={() => setEditing(false)}>Cancel</Button>
-                    <button onClick={() => setShowDeleteConfirm(true)} className="ml-auto flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-700 transition-colors">
+                  <div className="flex items-center gap-3 pt-6 border-t border-border mt-6">
+                    <Button variant="default" size="sm" onClick={handleSave} loading={loading}>Save Changes</Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+                    <button onClick={() => setShowDeleteConfirm(true)} className="ml-auto flex items-center gap-2 text-sm font-semibold text-danger hover:text-danger/80 transition-colors">
                       <Trash2 className="h-4 w-4" />
-                      Delete
+                      Delete Task
                     </button>
                   </div>
                 </div>
               )}
             </>
           ) : activeTab === "subtasks" ? (
-            <div className="space-y-5">
+            <div className="space-y-6 animate-fade-in">
               {subtasks.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-500">{subtasks.filter((s: any) => s.status === "DONE").length}/{subtasks.length} completed</span>
-                    <span className="text-xs font-medium text-gray-700">
+                <div className="bg-card p-4 rounded-xl border border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{subtasks.filter((s: any) => s.status === "DONE").length}/{subtasks.length} completed</span>
+                    <span className="text-xs font-bold text-foreground">
                       {Math.round((subtasks.filter((s: any) => s.status === "DONE").length / subtasks.length) * 100)}%
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${(subtasks.filter((s: any) => s.status === "DONE").length / subtasks.length) * 100}%` }} />
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-success transition-all duration-1000 ease-out" style={{ width: `${(subtasks.filter((s: any) => s.status === "DONE").length / subtasks.length) * 100}%` }} />
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {subtasks.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-6">No subtasks yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">No subtasks yet. Break down this task into smaller steps.</p>
                 )}
                 {subtasks.map((s: any) => (
-                  <div key={s.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+                  <div key={s.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-3.5 hover:border-primary/30 transition-colors">
                     <select value={s.status} onChange={(e) => handleUpdateSubtaskStatus(s.id, e.target.value)}
-                      className="rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs bg-white transition-colors hover:border-gray-300">
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium bg-background transition-colors hover:border-primary/50 focus:ring-2 focus:ring-primary/20">
                       <option value="TODO">To Do</option>
                       <option value="IN_PROGRESS">In Progress</option>
                       <option value="REVIEW">Review</option>
@@ -571,29 +571,33 @@ export function TaskDetailModal({
                       <option value="DONE">Done</option>
                     </select>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${s.status === "DONE" ? "line-through text-gray-400" : "text-gray-900"}`}>
-                        {s.code && <span className="font-mono text-gray-400 mr-1">#{s.code}</span>}
+                      <p className={`text-sm font-medium ${s.status === "DONE" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {s.code && <span className="font-mono text-muted-foreground mr-1.5 bg-muted px-1.5 py-0.5 rounded text-xs">#{s.code}</span>}
                         {s.title}
                       </p>
-                      <p className="text-xs text-gray-400">{s.createdBy}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Added by {s.createdBy}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New subtask..." className="flex-1 rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all hover:border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/10" />
-                <Button variant="primary" size="md" onClick={handleCreateSubtask}>Add</Button>
+              <div className="flex gap-3 pt-2">
+                <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="What needs to be done?" className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                <Button variant="default" size="sm" onClick={handleCreateSubtask}>Add Subtask</Button>
               </div>
 
               {workUpdates.length > 0 && (
-                <div className="pt-4 border-t border-gray-100">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Work Updates</p>
-                  <div className="space-y-3">
+                <div className="pt-6 mt-6 border-t border-border">
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-5 flex items-center gap-2"><Clock className="h-4 w-4" /> Work Updates</p>
+                  <div className="space-y-4">
                     {workUpdates.map((wu: any) => (
-                      <div key={wu.id} className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-sm">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="font-medium text-gray-900">{wu.user?.name}</span>
-                          <span className="text-xs text-gray-400">
+                      <div key={wu.id} className="rounded-xl border border-border bg-card p-5 text-sm shadow-sm relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/20 group-hover:bg-primary transition-colors" />
+                        <div className="flex items-center gap-3 mb-3 flex-wrap">
+                          <span className="font-semibold text-foreground flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-muted-foreground" />{wu.user?.name}</span>
+                          <span className="text-[11px] font-medium text-muted-foreground">
                             {wu.createdAt ? formatDateShort(wu.createdAt) : ""}
                           </span>
                           <Badge variant={
@@ -603,30 +607,31 @@ export function TaskDetailModal({
                             {wu.status.replace("_", " ")}
                           </Badge>
                           {wu.timeSpent > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
                               <Clock className="h-3 w-3" />
                               {(wu.timeSpent / 60).toFixed(1)}h
                             </span>
                           )}
                         </div>
-                        {wu.progressNotes && <p className="text-gray-600">{wu.progressNotes}</p>}
+                        {wu.progressNotes && <p className="text-foreground leading-relaxed text-sm mb-3">{wu.progressNotes}</p>}
                         {editingSummaryId === wu.id ? (
-                          <div className="mt-2 flex gap-2">
+                          <div className="mt-3 flex gap-2">
                             <input value={editingSummaryText} onChange={(e) => setEditingSummaryText(e.target.value)}
-                              className="flex-1 rounded-xl border border-gray-200 px-3 py-1.5 text-xs" />
-                            <Button variant="primary" size="sm" onClick={async () => { await updateWorkSummary(wu.id, editingSummaryText); setEditingSummaryId(null); }}>Save</Button>
-                            <Button variant="secondary" size="sm" onClick={() => setEditingSummaryId(null)}>Cancel</Button>
+                              className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20" />
+                            <Button variant="default" size="sm" onClick={async () => { await updateWorkSummary(wu.id, editingSummaryText); setEditingSummaryId(null); }}>Save</Button>
+                            <Button variant="outline" size="sm" onClick={() => setEditingSummaryId(null)}>Cancel</Button>
                           </div>
                         ) : wu.workSummary ? (
-                          <div className="mt-1 flex items-start gap-1 group">
-                            <p className="text-gray-500 italic text-xs">{wu.workSummary}</p>
+                          <div className="mt-3 p-3 bg-muted/40 rounded-lg border border-border/50 flex items-start gap-2 group/summary">
+                            <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <p className="text-muted-foreground italic text-xs flex-1">{wu.workSummary}</p>
                             {wu.user?.id === session?.user?.id && (
                               <button onClick={() => { setEditingSummaryId(wu.id); setEditingSummaryText(wu.workSummary || ""); }}
-                                className="hidden group-hover:inline text-xs text-primary hover:text-primary/80">Edit</button>
+                                className="hidden group-hover/summary:inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded">Edit</button>
                             )}
                           </div>
                         ) : null}
-                        {wu.subtask && <p className="mt-1 text-xs text-gray-400">Subtask: {wu.subtask.title}</p>}
+                        {wu.subtask && <p className="mt-3 text-xs font-medium text-muted-foreground flex items-center gap-1.5"><ListChecks className="h-3.5 w-3.5" /> Subtask: <span className="text-foreground">{wu.subtask.title}</span></p>}
                       </div>
                     ))}
                   </div>
@@ -634,26 +639,29 @@ export function TaskDetailModal({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4 animate-fade-in">
               {activityLog.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-6">No activity yet.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">No activity yet.</p>
               )}
               {activityLog.map((log: any) => (
-                <div key={log.id} className="flex items-start gap-3 text-sm">
+                <div key={log.id} className="flex items-start gap-4 text-sm p-4 rounded-xl hover:bg-muted/30 transition-colors">
                   <Avatar name={log.user?.name || "?"} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900">
-                      <span className="font-medium">{log.user?.name}</span>{" "}
-                      {formatActivityAction(log)}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="text-foreground">
+                      <span className="font-semibold">{log.user?.name}</span>{" "}
+                      <span className="text-muted-foreground">{formatActivityAction(log)}</span>
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-400">{formatDateShort(log.createdAt)}</p>
+                    <p className="mt-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDateShort(log.createdAt)}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          <hr className="my-6 border-gray-100" />
+          <hr className="my-8 border-border" />
           <CommentSection taskId={task.id} />
         </div>
 
@@ -676,8 +684,8 @@ export function TaskDetailModal({
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={handleDelete}
           title="Delete Task"
-          message="Delete this task? This cannot be undone."
-          confirmLabel="Delete"
+          message="Are you sure you want to delete this task? This action cannot be undone."
+          confirmLabel="Delete Task"
           danger
         />
       </div>
@@ -688,7 +696,7 @@ export function TaskDetailModal({
 function formatActivityAction(log: any): string {
   switch (log.action) {
     case "created": return "created this task";
-    case "assigned": return `assigned ${log.newValue || "someone"}`;
+    case "assigned": return `assigned to ${log.newValue || "someone"}`;
     case "reassigned": return `reassigned from ${log.oldValue || "Unassigned"} to ${log.newValue || "someone"}`;
     case "status_changed": return `changed status to ${log.newValue || "unknown"}`;
     case "priority_changed": return `changed priority to ${log.newValue || "unknown"}`;
@@ -700,17 +708,17 @@ function formatActivityAction(log: any): string {
 function TimelineStep({ label, date, isFirst, isLast }: { label: string; date: string | null; isFirst?: boolean; isLast?: boolean }) {
   const isCompleted = !!date;
   return (
-    <div className="relative pb-5 last:pb-0">
+    <div className="relative pb-6 last:pb-0">
       {!isLast && (
-        <div className={`absolute left-[5px] top-3 bottom-0 w-px ${isCompleted ? "bg-green-400" : "bg-gray-200"}`} />
+        <div className={`absolute left-[5px] top-4 bottom-0 w-px ${isCompleted ? "bg-success" : "bg-border"}`} />
       )}
-      <div className={`absolute left-0 top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
-      <div className="pl-5">
-        <span className={`text-xs font-medium ${isCompleted ? "text-gray-900" : "text-gray-400"}`}>{label}</span>
+      <div className={`absolute left-0 top-1.5 flex h-3 w-3 items-center justify-center rounded-full ring-4 ring-background ${isCompleted ? "bg-success" : "bg-muted-foreground/30"}`} />
+      <div className="pl-6 pt-0.5">
+        <span className={`text-sm font-medium ${isCompleted ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
         {date ? (
-          <p className="mt-0.5 text-xs font-semibold text-green-700">{formatDate(date)}</p>
+          <p className="mt-1 text-xs font-bold text-success">{formatDate(date)}</p>
         ) : (
-          <p className="mt-0.5 text-xs text-gray-400">Pending</p>
+          <p className="mt-1 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Pending</p>
         )}
       </div>
     </div>

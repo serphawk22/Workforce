@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { submitWorkUpdate, getNextCode } from "@/actions/work-update";
 import { createSubtask, getSubtacks } from "@/actions/subtask";
+import { Button } from "@/components/ui/button";
+import { X, Clock, GitBranch, Globe, ListChecks, Activity } from "lucide-react";
 
 type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; code: string | null; issueKey: string | null }[] };
 type Subtask = { id: string; title: string; status: string; createdBy: string; createdAt: string; updatedAt: string };
@@ -32,15 +34,17 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const tasks = selectedProject?.tasks || [];
 
-  const loadSubtasks = useCallback(async (taskId: string) => {
-    if (!taskId) { setSubtasks([]); return; }
-    const result = await getSubtacks(taskId);
-    setSubtasks(result);
-  }, []);
-
   useEffect(() => {
-    loadSubtasks(selectedTaskId);
-  }, [selectedTaskId, loadSubtasks]);
+    let active = true;
+    if (!selectedTaskId) {
+      setSubtasks([]);
+      return;
+    }
+    getSubtacks(selectedTaskId).then((result) => {
+      if (active) setSubtasks(result);
+    });
+    return () => { active = false; };
+  }, [selectedTaskId]);
 
   async function handleCreateSubtask() {
     if (!newSubtaskTitle.trim() || !selectedTaskId) return;
@@ -91,129 +95,144 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
     setLoading(false);
   }
 
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-gray-900/40" onClick={onClose} />
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Update Work</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-background border border-border rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 text-foreground font-bold text-lg tracking-tight">
+            <Activity className="h-5 w-5 text-primary" />
+            Update Work
+          </div>
+          <button onClick={onClose} className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Project</label>
-            <select value={selectedProjectId} onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedTaskId(""); setSubtasks([]); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
-              <option value="">Select project...</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.key ? `${p.key} - ` : ""}{p.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Task</label>
-            <div className="mb-2 flex gap-2">
-              <button type="button" onClick={() => { setIsCreatingNewTask(false); setSelectedTaskId(""); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${!isCreatingNewTask ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                Select existing
-              </button>
-              <button type="button" onClick={async () => { setIsCreatingNewTask(true); setSelectedTaskId(""); const next = await getNextCode(); setCustomCode(next); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${isCreatingNewTask ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                Create new
-              </button>
-            </div>
-            {isCreatingNewTask ? (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Code</label>
-                    <input value={customCode} onChange={(e) => setCustomCode(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono" disabled={!selectedProjectId} />
-                  </div>
-                  <div className="flex-[3]">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Task Title</label>
-                    <input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Task title..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" disabled={!selectedProjectId} />
-                  </div>
-                </div>
-                <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} rows={2} placeholder="Description (optional)..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" disabled={!selectedProjectId} />
-              </div>
-            ) : (
-              <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setSelectedSubtaskId(""); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" disabled={!selectedProjectId}>
-                <option value="">Select task...</option>
-                {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.code ? `#${t.code}` : t.issueKey || ""} {t.title}</option>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Project</label>
+              <select value={selectedProjectId} onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedTaskId(""); setSubtasks([]); }} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm" required>
+                <option value="">Select project...</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.key ? `${p.key} - ` : ""}{p.name}</option>
                 ))}
               </select>
-            )}
-          </div>
+            </div>
 
-          {selectedTaskId && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Subtask (optional)</label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                <select value={selectedSubtaskId} onChange={(e) => setSelectedSubtaskId(e.target.value)} className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                  <option value="">No specific subtask</option>
-                  {subtasks.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title} ({s.status})</option>
+              <label className="block text-sm font-semibold text-foreground mb-2">Task</label>
+              <div className="mb-3 flex p-1 bg-muted/50 rounded-xl border border-border/50">
+                <button type="button" onClick={() => { setIsCreatingNewTask(false); setSelectedTaskId(""); }} className={`flex-1 rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${!isCreatingNewTask ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+                  Existing Task
+                </button>
+                <button type="button" onClick={async () => { setIsCreatingNewTask(true); setSelectedTaskId(""); const next = await getNextCode(); setCustomCode(next); }} className={`flex-1 rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${isCreatingNewTask ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+                  Create New Task
+                </button>
+              </div>
+              {isCreatingNewTask ? (
+                <div className="space-y-3 p-4 bg-muted/20 border border-border rounded-xl animate-in fade-in slide-in-from-top-2">
+                  <div className="flex gap-3">
+                    <div className="w-24">
+                      <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Code</label>
+                      <input value={customCode} onChange={(e) => setCustomCode(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono text-muted-foreground shadow-sm" disabled={!selectedProjectId} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Task Title</label>
+                      <input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Task title..." className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" disabled={!selectedProjectId} />
+                    </div>
+                  </div>
+                  <textarea value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} rows={2} placeholder="Description (optional)..." className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" disabled={!selectedProjectId} />
+                </div>
+              ) : (
+                <select value={selectedTaskId} onChange={(e) => { setSelectedTaskId(e.target.value); setSelectedSubtaskId(""); }} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" disabled={!selectedProjectId}>
+                  <option value="">Select task...</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>{t.code ? `#${t.code}` : t.issueKey || ""} {t.title}</option>
                   ))}
                 </select>
-              </div>
-              <div className="flex gap-2">
-                <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New subtask title..." className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
-                <button type="button" onClick={handleCreateSubtask} className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200">+ Add</button>
-              </div>
+              )}
             </div>
-          )}
+
+            {selectedTaskId && (
+              <div className="animate-in fade-in slide-in-from-top-2">
+                <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><ListChecks className="h-4 w-4 text-muted-foreground" /> Subtask <span className="text-muted-foreground font-normal text-xs">(optional)</span></label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <select value={selectedSubtaskId} onChange={(e) => setSelectedSubtaskId(e.target.value)} className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    <option value="">No specific subtask</option>
+                    {subtasks.map((s) => (
+                      <option key={s.id} value={s.id}>{s.title} ({s.status.replace("_", " ")})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New subtask title..." className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                  <Button type="button" variant="secondary" size="sm" onClick={handleCreateSubtask}>Add Subtask</Button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <hr className="border-border" />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-            <div className="grid grid-cols-5 gap-2">
+            <label className="block text-sm font-semibold text-foreground mb-2">Current Status</label>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {["TODO", "IN_PROGRESS", "REVIEW", "TESTING", "DONE"].map((s) => (
-                <button key={s} type="button" onClick={() => setStatus(s)} className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${status === s ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
+                <button key={s} type="button" onClick={() => setStatus(s)} className={`rounded-xl border px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${status === s ? "bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]" : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"}`}>
                   {s === "TODO" ? "To Do" : s === "IN_PROGRESS" ? "In Progress" : s === "REVIEW" ? "Review" : s === "TESTING" ? "Testing" : "Done"}
                 </button>
               ))}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Progress Notes</label>
-            <textarea value={progressNotes} onChange={(e) => setProgressNotes(e.target.value)} rows={3} placeholder="What progress did you make?" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Today's Work Summary</label>
-            <textarea value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} rows={2} placeholder="Brief summary of today's work..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">GitHub Link (optional)</label>
-              <input type="url" value={githubLink} onChange={(e) => setGithubLink(e.target.value)} placeholder="https://github.com/..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Progress Notes</label>
+              <textarea value={progressNotes} onChange={(e) => setProgressNotes(e.target.value)} rows={3} placeholder="What progress did you make?" className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y" />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Production URL (optional)</label>
-              <input type="url" value={productionUrl} onChange={(e) => setProductionUrl(e.target.value)} placeholder="https://..." className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Today&apos;s Work Summary <span className="text-muted-foreground font-normal text-xs">(Standup update)</span></label>
+              <textarea value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} rows={2} placeholder="Brief summary of today's work for the standup log..." className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y" />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Time Spent (hours)</label>
-            <input type="number" min="0" step="0.01" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><GitBranch className="h-4 w-4 text-muted-foreground" /> GitHub PR Link</label>
+              <input type="url" value={githubLink} onChange={(e) => setGithubLink(e.target.value)} placeholder="https://github.com/..." className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><Globe className="h-4 w-4 text-muted-foreground" /> Production URL</label>
+              <input type="url" value={productionUrl} onChange={(e) => setProductionUrl(e.target.value)} placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><Clock className="h-4 w-4 text-muted-foreground" /> Time Spent (hours)</label>
+            <input type="number" min="0" step="0.1" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} className="w-32 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 font-mono" />
+          </div>
 
-          <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-            <button type="submit" disabled={loading} className="rounded-lg bg-gray-900 px-6 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50">
-              {loading ? "Saving..." : "Save Update"}
-            </button>
-            <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+          {error && (
+            <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-sm text-danger flex items-center gap-2 font-medium">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger text-white text-xs font-bold">!</span>
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
+            <Button type="submit" variant="default" size="md" disabled={loading} className="w-full sm:w-auto min-w-[140px]">
+              {loading ? "Saving..." : "Save Work Update"}
+            </Button>
+            <Button type="button" variant="outline" size="md" onClick={onClose} className="w-full sm:w-auto">
+              Cancel
+            </Button>
           </div>
         </form>
       </div>
     </div>
   );
 }
+

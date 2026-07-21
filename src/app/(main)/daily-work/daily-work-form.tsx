@@ -3,29 +3,57 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { submitDailyWork, getProjectTasks, getYesterdaysPlan } from "@/actions/daily-work";
-import { Check } from "lucide-react";
+import { getSubtacks } from "@/actions/subtask";
+import { Check, GitBranch, Globe, Clock, ListChecks } from "lucide-react";
 
 type Employee = { id: string; name: string; email: string; department: string | null };
 type Project = { id: string; name: string; key: string };
+type Subtask = { id: string; title: string; status: string };
+
+const STATUSES = [
+  { value: "TODO",        label: "To Do" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "REVIEW",      label: "Review" },
+  { value: "TESTING",     label: "Testing" },
+  { value: "DONE",        label: "Done" },
+];
 
 export function DailyWorkForm({ employees, projects }: { employees: Employee[]; projects: Project[] }) {
   const router = useRouter();
+
+  // — identity
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [projectId, setProjectId] = useState("");
-  const [tasks, setTasks] = useState<{ id: string; title: string; code: string | null }[]>([]);
-  const [taskId, setTaskId] = useState("");
-  const [isNewTask, setIsNewTask] = useState(false);
+
+  // — project / task
+  const [projectId, setProjectId]   = useState("");
+  const [tasks, setTasks]           = useState<{ id: string; title: string; code: string | null }[]>([]);
+  const [taskId, setTaskId]         = useState("");
+  const [isNewTask, setIsNewTask]   = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [todayWork, setTodayWork] = useState("");
+
+  // — work-update fields
+  const [status, setStatus]             = useState("IN_PROGRESS");
+  const [subtasks, setSubtasks]         = useState<Subtask[]>([]);
+  const [subtaskId, setSubtaskId]       = useState("");
+  const [progressNotes, setProgressNotes] = useState("");
+  const [githubLink, setGithubLink]     = useState("");
+  const [productionUrl, setProductionUrl] = useState("");
+  const [timeSpent, setTimeSpent]       = useState("0");
+
+  // — daily standup fields
+  const [todayWork, setTodayWork]     = useState("");
   const [tomorrowTask, setTomorrowTask] = useState("");
-  const [blockers, setBlockers] = useState("");
-  const [yesterdayPlan, setYesterdayPlan] = useState<string | null>(null);
-  const [yesterdayPlanId, setYesterdayPlanId] = useState<string | null>(null);
-  const [yesterdayStatuses, setYesterdayStatuses] = useState<{task: string; status: string}[]>([]);
-  const [links, setLinks] = useState<{ type: string; url: string }[]>([]);
+  const [blockers, setBlockers]       = useState("");
+  const [yesterdayPlan, setYesterdayPlan]   = useState<string | null>(null);
+  const [yesterdayStatuses, setYesterdayStatuses] = useState<{ task: string; status: string }[]>([]);
+
+  // — links / attachments
+  const [links, setLinks]           = useState<{ type: string; url: string }[]>([]);
   const [attachments, setAttachments] = useState<{ name: string; url: string; type: string }[]>([]);
+
+  // — ui
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError]     = useState("");
   const [success, setSuccess] = useState(false);
 
   const loadTasks = useCallback(async (pid: string) => {
@@ -34,15 +62,24 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
     setTasks(result);
   }, []);
 
+  const loadSubtasks = useCallback(async (tid: string) => {
+    if (!tid) { setSubtasks([]); return; }
+    const result = await getSubtacks(tid);
+    setSubtasks(result.map((s) => ({ id: s.id, title: s.title, status: s.status })));
+  }, []);
+
   useEffect(() => {
     loadTasks(projectId);
   }, [projectId, loadTasks]);
+
+  useEffect(() => {
+    loadSubtasks(taskId);
+  }, [taskId, loadSubtasks]);
 
   const loadYesterdayPlan = useCallback(async (empId: string) => {
     const plan = await getYesterdaysPlan(empId);
     if (plan) {
       setYesterdayPlan(plan.tomorrowTask);
-      setYesterdayPlanId(plan.id);
     }
   }, []);
 
@@ -92,18 +129,16 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
     setAttachments(attachments.filter((_, i) => i !== index));
   }
 
-  function setYesterdayTaskStatus(task: string, status: string) {
+  function setYesterdayTaskStatus(task: string, s: string) {
     setYesterdayStatuses((prev) => {
-      const existing = prev.find((s) => s.task === task);
-      if (existing) {
-        return prev.map((s) => s.task === task ? { ...s, status } : s);
-      }
-      return [...prev, { task, status }];
+      const existing = prev.find((x) => x.task === task);
+      if (existing) return prev.map((x) => x.task === task ? { ...x, status: s } : x);
+      return [...prev, { task, status: s }];
     });
   }
 
   function getYesterdayTaskStatus(task: string): string {
-    return yesterdayStatuses.find((s) => s.task === task)?.status || "";
+    return yesterdayStatuses.find((x) => x.task === task)?.status || "";
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -125,6 +160,14 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
     formData.set("todayWork", todayWork);
     formData.set("tomorrowTask", tomorrowTask);
     formData.set("blockers", blockers);
+
+    // work-update fields
+    formData.set("status", status);
+    if (subtaskId) formData.set("subtaskId", subtaskId);
+    formData.set("progressNotes", progressNotes);
+    formData.set("githubLink", githubLink);
+    formData.set("productionUrl", productionUrl);
+    formData.set("timeSpent", timeSpent);
 
     if (yesterdayPlan) {
       formData.set("yesterdayPlan", JSON.stringify(yesterdayPlan.split("\n").filter(Boolean).map((t) => t.trim())));
@@ -162,17 +205,12 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
           onClick={() => {
             setSuccess(false);
             setSelectedEmployee(null);
-            setProjectId("");
-            setTaskId("");
-            setIsNewTask(false);
-            setNewTaskTitle("");
-            setTodayWork("");
-            setTomorrowTask("");
-            setBlockers("");
-            setYesterdayPlan(null);
-            setYesterdayStatuses([]);
-            setLinks([]);
-            setAttachments([]);
+            setProjectId(""); setTaskId(""); setIsNewTask(false); setNewTaskTitle("");
+            setStatus("IN_PROGRESS"); setSubtasks([]); setSubtaskId("");
+            setProgressNotes(""); setGithubLink(""); setProductionUrl(""); setTimeSpent("0");
+            setTodayWork(""); setTomorrowTask(""); setBlockers("");
+            setYesterdayPlan(null); setYesterdayStatuses([]);
+            setLinks([]); setAttachments([]);
           }}
           className="rounded-xl bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
         >
@@ -184,6 +222,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* ── Employee ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <label className="mb-3 block text-sm font-medium text-gray-700">Select Your Name</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -212,6 +251,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         </div>
       </div>
 
+      {/* ── Project ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">Project</label>
         <select
@@ -226,6 +266,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         </select>
       </div>
 
+      {/* ── Task ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">Task</label>
         {isNewTask ? (
@@ -249,7 +290,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
           <div className="space-y-2">
             <select
               value={taskId}
-              onChange={(e) => setTaskId(e.target.value)}
+              onChange={(e) => { setTaskId(e.target.value); setSubtaskId(""); }}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
               disabled={!projectId}
             >
@@ -269,9 +310,114 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         )}
       </div>
 
+      {/* ── Subtask (only if a task is selected and it has subtasks) ── */}
+      {taskId && subtasks.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+            <ListChecks className="h-4 w-4 text-gray-400" />
+            Subtask <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <select
+            value={subtaskId}
+            onChange={(e) => setSubtaskId(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+          >
+            <option value="">No specific subtask</option>
+            {subtasks.map((s) => (
+              <option key={s.id} value={s.id}>{s.title} ({s.status.replace("_", " ")})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* ── Task Status ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <label className="mb-3 block text-sm font-medium text-gray-700">Task Status</label>
+        <div className="flex flex-wrap gap-2">
+          {STATUSES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => setStatus(s.value)}
+              className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                status === s.value
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Progress Notes ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Progress Notes <span className="font-normal text-gray-400">(optional)</span>
+        </label>
+        <textarea
+          value={progressNotes}
+          onChange={(e) => setProgressNotes(e.target.value)}
+          rows={3}
+          placeholder="Any specific progress details on the task status change?"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+        />
+      </div>
+
+      {/* ── GitHub & Production URL ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <label className="mb-3 block text-sm font-medium text-gray-700">
+          Links <span className="font-normal text-gray-400">(optional)</span>
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <GitBranch className="h-3.5 w-3.5" /> GitHub PR
+            </label>
+            <input
+              type="url"
+              value={githubLink}
+              onChange={(e) => setGithubLink(e.target.value)}
+              placeholder="https://github.com/..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <Globe className="h-3.5 w-3.5" /> Production URL
+            </label>
+            <input
+              type="url"
+              value={productionUrl}
+              onChange={(e) => setProductionUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Time Spent ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
+          <Clock className="h-4 w-4 text-gray-400" />
+          Time Spent (hours) <span className="font-normal text-gray-400">(optional)</span>
+        </label>
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          value={timeSpent}
+          onChange={(e) => setTimeSpent(e.target.value)}
+          className="w-32 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-mono focus:border-gray-400 focus:outline-none"
+        />
+      </div>
+
+      {/* ── Yesterday's Plan ── */}
       {yesterdayPlan && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">Yesterday's Planned Task</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">Yesterday&apos;s Planned Task</label>
           <p className="text-xs text-gray-400 mb-3">Mark each task as completed, partially completed, or not completed</p>
           <div className="space-y-3">
             {yesterdayPlan.split("\n").filter(Boolean).map((task, i) => {
@@ -280,7 +426,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
               return (
                 <div key={i} className="rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3">
                   <p className="text-sm font-medium text-gray-700 mb-2">{t}</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {[
                       { value: "COMPLETED", label: "Completed" },
                       { value: "PARTIALLY", label: "Partially" },
@@ -313,8 +459,9 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         </div>
       )}
 
+      {/* ── Today's Work ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">Today's Work</label>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">Today&apos;s Work Summary</label>
         <textarea
           value={todayWork}
           onChange={(e) => setTodayWork(e.target.value)}
@@ -324,8 +471,9 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         />
       </div>
 
+      {/* ── Tomorrow's Task ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">Tomorrow's Task</label>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">Tomorrow&apos;s Task</label>
         <textarea
           value={tomorrowTask}
           onChange={(e) => setTomorrowTask(e.target.value)}
@@ -335,6 +483,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         />
       </div>
 
+      {/* ── Blockers ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">Blockers <span className="text-gray-400 font-normal">(optional)</span></label>
         <textarea
@@ -346,14 +495,11 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         />
       </div>
 
+      {/* ── Reference Links ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-medium text-gray-700">Reference Links <span className="text-gray-400 font-normal">(optional)</span></label>
-          <button
-            type="button"
-            onClick={addLink}
-            className="text-xs text-blue-600 hover:text-blue-700"
-          >
+          <button type="button" onClick={addLink} className="text-xs text-blue-600 hover:text-blue-700">
             + Add Link
           </button>
         </div>
@@ -380,11 +526,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
                   placeholder="https://..."
                   className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeLink(i)}
-                  className="text-gray-400 hover:text-red-500"
-                >
+                <button type="button" onClick={() => removeLink(i)} className="text-gray-400 hover:text-red-500">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -395,14 +537,11 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         )}
       </div>
 
+      {/* ── Attachments ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-medium text-gray-700">Attachments <span className="text-gray-400 font-normal">(optional)</span></label>
-          <button
-            type="button"
-            onClick={addAttachment}
-            className="text-xs text-blue-600 hover:text-blue-700"
-          >
+          <button type="button" onClick={addAttachment} className="text-xs text-blue-600 hover:text-blue-700">
             + Add Attachment
           </button>
         </div>
@@ -436,11 +575,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
                   placeholder="URL..."
                   className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(i)}
-                  className="text-gray-400 hover:text-red-500"
-                >
+                <button type="button" onClick={() => removeAttachment(i)} className="text-gray-400 hover:text-red-500">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -462,7 +597,7 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         disabled={loading}
         className="w-full rounded-xl bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
       >
-        {loading ? "Submitting..." : "Submit"}
+        {loading ? "Submitting..." : "Submit Daily Work"}
       </button>
 
       <p className="text-center text-xs text-gray-400 pb-8">

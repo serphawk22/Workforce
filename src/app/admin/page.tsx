@@ -136,50 +136,50 @@ export default async function AdminDashboardPage() {
   });
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Overview</h1>
-        <p className="text-sm text-gray-400 mt-1">Admin dashboard with your personal work and organization overview</p>
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Overview</h1>
+        <p className="text-sm text-muted-foreground mt-1">Admin dashboard with your personal work and organization overview</p>
       </div>
 
-      <Card className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="text-sm font-semibold text-gray-900">My Work</h2>
+            <h2 className="text-base font-semibold text-foreground">My Work</h2>
           </div>
           <div className="flex gap-2">
-            <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks <ArrowUpRight className="h-3 w-3" /></Button></Link>
-            <Link href="/my-projects"><Button variant="secondary" size="sm">My Projects <ArrowUpRight className="h-3 w-3" /></Button></Link>
+            <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
+            <Link href="/my-projects"><Button variant="outline" size="sm">My Projects <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-4">
           {[
-            { label: "My Tasks", value: myTotal, color: "text-gray-900" },
-            { label: "Due Today", value: myDueToday, color: myDueToday > 0 ? "text-amber-600" : "text-gray-900" },
-            { label: "Completed", value: myCompleted, color: "text-green-600" },
-            { label: "Overdue", value: myOverdue, color: myOverdue > 0 ? "text-red-600" : "text-gray-900" },
+            { label: "My Tasks", value: myTotal, color: "text-foreground" },
+            { label: "Due Today", value: myDueToday, color: myDueToday > 0 ? "text-warning" : "text-foreground" },
+            { label: "Completed", value: myCompleted, color: "text-success" },
+            { label: "Overdue", value: myOverdue, color: myOverdue > 0 ? "text-danger" : "text-foreground" },
           ].map((s) => (
-            <div key={s.label} className="rounded-xl bg-gray-50/80 p-4 border border-gray-100">
-              <p className="text-xs text-gray-400">{s.label}</p>
-              <p className={`text-2xl font-bold mt-0.5 ${s.color}`}>{s.value}</p>
+            <div key={s.label} className="rounded-xl bg-muted/30 p-4 border border-border">
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
             </div>
           ))}
         </div>
         {myTotal > 0 && (
-          <div>
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-gray-400">Completion</span>
-              <span className="font-semibold text-gray-900">{myPct}%</span>
+          <div className="mt-6 pt-4 border-t border-border">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-muted-foreground font-medium">Completion</span>
+              <span className="font-bold text-foreground">{myPct}%</span>
             </div>
-            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${myPct}%` }} />
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-success transition-all duration-1000 ease-out" style={{ width: `${myPct}%` }} />
             </div>
           </div>
         )}
       </Card>
 
-      <div className="mb-8">
+      <div>
         <AdminWorkflowActions
           workspace={workspace}
           members={members.map((m) => ({ id: m.id, name: m.name, email: m.email }))}
@@ -188,31 +188,31 @@ export default async function AdminDashboardPage() {
         />
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Organization Overview</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-4">Organization Overview</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {[
-          { icon: <Users className="h-6 w-6" />, title: "Total Employees", value: totalEmployees, desc: `${activeEmployees} active`, color: "blue" },
-          { icon: <FolderKanban className="h-6 w-6" />, title: "Total Projects", value: totalProjects, desc: "Active projects", color: "indigo" },
-          { icon: <CheckSquare className="h-6 w-6" />, title: "Total Tasks", value: totalTasks, desc: `${unassignedCount} unassigned`, color: "purple" },
-          { icon: <CheckCircle2 className="h-6 w-6" />, title: "Completed", value: completedCount, desc: `${totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0}% of all tasks`, color: "green" },
-          { icon: <Clock className="h-6 w-6" />, title: "Pending", value: totalTasks - completedCount, desc: "Not yet completed", color: "amber" },
-          { icon: <AlertTriangle className="h-6 w-6" />, title: "Overdue", value: overdueCount, desc: "Past due date", color: "red" },
+          { icon: <Users className="h-5 w-5" />, title: "Total Employees", value: totalEmployees, desc: `${activeEmployees} active`, color: "blue" },
+          { icon: <FolderKanban className="h-5 w-5" />, title: "Total Projects", value: totalProjects, desc: "Active projects", color: "indigo" },
+          { icon: <CheckSquare className="h-5 w-5" />, title: "Total Tasks", value: totalTasks, desc: `${unassignedCount} unassigned`, color: "purple" },
+          { icon: <CheckCircle2 className="h-5 w-5" />, title: "Completed", value: completedCount, desc: `${totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0}% of all tasks`, color: "green" },
+          { icon: <Clock className="h-5 w-5" />, title: "Pending", value: totalTasks - completedCount, desc: "Not yet completed", color: "amber" },
+          { icon: <AlertTriangle className="h-5 w-5" />, title: "Overdue", value: overdueCount, desc: "Past due date", color: "red" },
         ].map((s, i) => {
           const colors: Record<string, string> = {
-            blue: "bg-blue-50 text-blue-600", indigo: "bg-indigo-50 text-indigo-600",
-            purple: "bg-purple-50 text-purple-600", green: "bg-green-50 text-green-600",
-            amber: "bg-amber-50 text-amber-600", red: "bg-red-50 text-red-600",
+            blue: "bg-blue-500/10 text-blue-500", indigo: "bg-indigo-500/10 text-indigo-500",
+            purple: "bg-purple-500/10 text-purple-500", green: "bg-success/10 text-success",
+            amber: "bg-warning/10 text-warning", red: "bg-danger/10 text-danger",
           };
           return (
-            <Card key={i} hover>
+            <Card key={i} hover className="p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-400 mb-1">{s.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{s.value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{s.desc}</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">{s.title}</p>
+                  <p className="text-3xl font-bold text-foreground">{s.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.desc}</p>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ring-black/5 ${colors[s.color] || "bg-gray-50 text-gray-500"}`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-xl ring-1 ring-border/50 ${colors[s.color] || "bg-muted text-muted-foreground"}`}>
                   {s.icon}
                 </div>
               </div>
@@ -221,116 +221,116 @@ export default async function AdminDashboardPage() {
         })}
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Manager Dashboard</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-4">Manager Dashboard</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><RefreshCw className="h-3.5 w-3.5" /> Reassigned Today</p>
-          <p className="text-2xl font-bold text-amber-600">{reassignedTodayCount}</p>
-          <p className="text-xs text-gray-400 mt-1">Tasks reassigned today</p>
+        <Card className="p-5 border-l-4 border-l-warning">
+          <p className="text-[11px] font-bold text-warning uppercase tracking-wider flex items-center gap-1.5 mb-2"><RefreshCw className="h-3.5 w-3.5" /> Reassigned Today</p>
+          <p className="text-2xl font-bold text-foreground">{reassignedTodayCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">Tasks reassigned today</p>
         </Card>
-        <Card>
-          <p className="text-xs font-semibold text-red-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><AlertCircle className="h-3.5 w-3.5" /> Stale Tasks</p>
-          <p className="text-2xl font-bold text-red-600">{tasksWithoutUpdatesCount}</p>
-          <p className="text-xs text-gray-400 mt-1">No update in 7+ days</p>
+        <Card className="p-5 border-l-4 border-l-danger">
+          <p className="text-[11px] font-bold text-danger uppercase tracking-wider flex items-center gap-1.5 mb-2"><AlertCircle className="h-3.5 w-3.5" /> Stale Tasks</p>
+          <p className="text-2xl font-bold text-foreground">{tasksWithoutUpdatesCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">No update in 7+ days</p>
         </Card>
-        <Card>
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><CalendarDays className="h-3.5 w-3.5" /> Due This Week</p>
-          <p className="text-2xl font-bold text-blue-600">{tasksDueThisWeek}</p>
-          <p className="text-xs text-gray-400 mt-1">Tasks due this week</p>
+        <Card className="p-5 border-l-4 border-l-blue-500">
+          <p className="text-[11px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5 mb-2"><CalendarDays className="h-3.5 w-3.5" /> Due This Week</p>
+          <p className="text-2xl font-bold text-foreground">{tasksDueThisWeek}</p>
+          <p className="text-xs text-muted-foreground mt-1">Tasks due this week</p>
         </Card>
-        <Card>
-          <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><Flame className="h-3.5 w-3.5" /> Highest Workload</p>
-          <div className="space-y-1.5 mt-1">
+        <Card className="p-5 border-l-4 border-l-purple-500">
+          <p className="text-[11px] font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1.5 mb-2"><Flame className="h-3.5 w-3.5" /> Highest Workload</p>
+          <div className="space-y-1.5 mt-2">
             {highestWorkload.map((e: any) => (
               <div key={e.id} className="flex items-center justify-between text-xs">
-                <Link href={`/admin/team/${e.id}`} className="font-medium text-purple-800 hover:underline truncate">{e.name}</Link>
-                <span className="text-purple-600 font-medium">{e._count.assignedTasks}</span>
+                <Link href={`/admin/team/${e.id}`} className="font-medium text-foreground hover:text-primary transition-colors truncate">{e.name}</Link>
+                <span className="text-muted-foreground font-medium">{e._count.assignedTasks}</span>
               </div>
             ))}
-            {highestWorkload.length === 0 && <p className="text-xs text-gray-400">No data</p>}
+            {highestWorkload.length === 0 && <p className="text-xs text-muted-foreground">No data</p>}
           </div>
         </Card>
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Work Updates</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-4">Work Updates</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <Card>
-          <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><Clock className="h-3.5 w-3.5" /> Pending</p>
-          <p className="text-2xl font-bold text-orange-600">{pendingWorkUpdatesCount}</p>
-          <p className="text-xs text-gray-400 mt-1">Tasks never updated</p>
+        <Card className="p-5 border-l-4 border-l-warning">
+          <p className="text-[11px] font-bold text-warning uppercase tracking-wider flex items-center gap-1.5 mb-2"><Clock className="h-3.5 w-3.5" /> Pending</p>
+          <p className="text-2xl font-bold text-foreground">{pendingWorkUpdatesCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">Tasks never updated</p>
         </Card>
-        <Card>
-          <p className="text-xs font-semibold text-green-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><TrendingUp className="h-3.5 w-3.5" /> Submitted Today</p>
-          <p className="text-2xl font-bold text-green-600">{submittedTodayCount}</p>
-          <p className="text-xs text-gray-400 mt-1">Work updates today</p>
+        <Card className="p-5 border-l-4 border-l-success">
+          <p className="text-[11px] font-bold text-success uppercase tracking-wider flex items-center gap-1.5 mb-2"><TrendingUp className="h-3.5 w-3.5" /> Submitted Today</p>
+          <p className="text-2xl font-bold text-foreground">{submittedTodayCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">Work updates today</p>
         </Card>
-        <Card>
-          <p className="text-xs font-semibold text-red-600 uppercase tracking-wide flex items-center gap-1.5 mb-2"><AlertTriangle className="h-3.5 w-3.5" /> Overdue</p>
-          <p className="text-2xl font-bold text-red-600">{overdueWorkUpdatesCount}</p>
-          <p className="text-xs text-gray-400 mt-1">No update in 7+ days</p>
+        <Card className="p-5 border-l-4 border-l-danger">
+          <p className="text-[11px] font-bold text-danger uppercase tracking-wider flex items-center gap-1.5 mb-2"><AlertTriangle className="h-3.5 w-3.5" /> Overdue</p>
+          <p className="text-2xl font-bold text-foreground">{overdueWorkUpdatesCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">No update in 7+ days</p>
         </Card>
       </div>
 
       {lowestWorkload.length > 0 && (
-        <Card className="mb-8 border-green-200 bg-green-50/50">
+        <Card className="mb-8 p-5 border-success/30 bg-success/5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-green-800 flex items-center gap-1.5"><UserCheck className="h-4 w-4" /> Lowest Workload</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <p className="text-sm font-semibold text-success flex items-center gap-1.5"><UserCheck className="h-4 w-4" /> Lowest Workload</p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {lowestWorkload.map((e: any) => (
                   <Link key={e.id} href={`/admin/team/${e.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-green-700 border border-green-200 hover:bg-green-50 transition-colors">
-                    {e.name} <span className="text-green-500">({e._count.assignedTasks})</span>
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-card px-3 py-1.5 text-xs font-medium text-foreground border border-border hover:bg-muted transition-colors">
+                    {e.name} <span className="text-muted-foreground">({e._count.assignedTasks})</span>
                   </Link>
                 ))}
               </div>
             </div>
-            <Link href="/admin/workload"><Button variant="secondary" size="sm">View Workload</Button></Link>
+            <Link href="/admin/workload"><Button variant="outline" size="sm">View Workload</Button></Link>
           </div>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <Card>
-          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2"><BarChart3 className="h-5 w-5 text-gray-400" /> Tasks by Column</h2>
-          <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card className="p-6">
+          <h2 className="text-base font-semibold text-foreground mb-5 flex items-center gap-2"><BarChart3 className="h-5 w-5 text-muted-foreground" /> Tasks by Column</h2>
+          <div className="space-y-4">
             {columnStats.map((c) => {
               const colName = columnNameMap.get(c.columnId) ?? "Unknown";
               const pct = totalTasks > 0 ? Math.round((c._count / totalTasks) * 100) : 0;
               return (
                 <div key={c.columnId}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-medium text-gray-700">{colName}</span>
-                    <span className="text-gray-400">{c._count} ({pct}%)</span>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="font-medium text-muted-foreground">{colName}</span>
+                    <span className="font-medium text-foreground">{c._count} <span className="text-muted-foreground font-normal">({pct}%)</span></span>
                   </div>
-                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
             })}
-            {columnStats.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No tasks yet</p>}
+            {columnStats.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No tasks yet</p>}
           </div>
         </Card>
 
-        <Card>
-          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2"><RefreshCw className="h-5 w-5 text-gray-400" /> Recently Updated</h2>
+        <Card className="p-6">
+          <h2 className="text-base font-semibold text-foreground mb-5 flex items-center gap-2"><RefreshCw className="h-5 w-5 text-muted-foreground" /> Recently Updated</h2>
           {recentlyUpdated.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No recent updates</p>
+            <p className="text-sm text-muted-foreground text-center py-4">No recent updates</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recentlyUpdated.map((t) => (
-                <div key={t.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3">
+                <div key={t.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3 bg-muted/20">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{t.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {t.assignee && <span className="text-xs text-gray-400">{t.assignee.name}</span>}
-                      <Badge variant="gray" size="sm">{t.column.name}</Badge>
+                    <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
+                      <Badge variant="secondary" size="sm">{t.column.name}</Badge>
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0 ml-3">{formatDateTime(t.updatedAt)}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{formatDateTime(t.updatedAt)}</span>
                 </div>
               ))}
             </div>
@@ -338,46 +338,46 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <Card className="border-blue-100">
-          <h2 className="text-base font-semibold text-blue-700 mb-2 flex items-center gap-2"><CheckCircle2 className="h-5 w-5" /> Completed This Week</h2>
-          <p className="text-3xl font-bold text-blue-600">{completedThisWeekCount}</p>
-          <p className="text-xs text-gray-400 mt-1">Tasks moved to Done/Released/Closed</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+        <Card className="p-6 border-l-4 border-l-blue-500">
+          <h2 className="text-sm font-semibold text-blue-500 mb-2 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Completed This Week</h2>
+          <p className="text-3xl font-bold text-foreground">{completedThisWeekCount}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Tasks moved to Done/Released/Closed</p>
         </Card>
-        <Card className="border-amber-100">
-          <h2 className="text-base font-semibold text-amber-700 mb-2 flex items-center gap-2"><PlayCircle className="h-5 w-5" /> QA Pending</h2>
-          <p className="text-3xl font-bold text-amber-600">{qaPendingCount}</p>
-          <p className="text-xs text-gray-400 mt-1">In Review without QA completion date</p>
+        <Card className="p-6 border-l-4 border-l-warning">
+          <h2 className="text-sm font-semibold text-warning mb-2 flex items-center gap-2"><PlayCircle className="h-4 w-4" /> QA Pending</h2>
+          <p className="text-3xl font-bold text-foreground">{qaPendingCount}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">In Review without QA completion date</p>
         </Card>
       </div>
 
       {recentlyReleased.length > 0 && (
-        <Card className="mb-8 border-purple-100">
-          <h2 className="text-base font-semibold text-purple-700 mb-4 flex items-center gap-2"><ExternalLink className="h-5 w-5" /> Recently Released (7 days)</h2>
-          <div className="space-y-2">
+        <Card className="mb-8 p-6">
+          <h2 className="text-base font-semibold text-foreground mb-5 flex items-center gap-2"><ExternalLink className="h-5 w-5 text-muted-foreground" /> Recently Released (7 days)</h2>
+          <div className="space-y-3">
             {recentlyReleased.map((t) => (
-              <div key={t.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3">
+              <div key={t.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3 bg-muted/20">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">{t.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {t.assignee && <span className="text-xs text-gray-400">{t.assignee.name}</span>}
-                    <Badge variant="gray" size="sm">{t.column.name}</Badge>
+                  <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
+                    <Badge variant="secondary" size="sm">{t.column.name}</Badge>
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 shrink-0 ml-3">{t.dateOfReleaseToProd ? formatDate(t.dateOfReleaseToProd) : ""}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{t.dateOfReleaseToProd ? formatDate(t.dateOfReleaseToProd) : ""}</span>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      <Card>
-        <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2"><ExternalLink className="h-5 w-5 text-gray-400" /> Quick Links</h2>
+      <Card className="p-6">
+        <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2"><ExternalLink className="h-5 w-5 text-muted-foreground" /> Quick Links</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/admin/team"><Button variant="primary" size="sm">Team Overview</Button></Link>
-          <Link href="/dashboard"><Button variant="secondary" size="sm">My Dashboard</Button></Link>
-          <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks</Button></Link>
-          <Link href="/admin/analytics"><Button variant="secondary" size="sm">Analytics</Button></Link>
+          <Link href="/admin/team"><Button variant="default" size="sm">Team Overview</Button></Link>
+          <Link href="/dashboard"><Button variant="outline" size="sm">My Dashboard</Button></Link>
+          <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks</Button></Link>
+          <Link href="/admin/analytics"><Button variant="outline" size="sm">Analytics</Button></Link>
         </div>
       </Card>
     </div>
