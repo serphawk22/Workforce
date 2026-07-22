@@ -41,6 +41,8 @@ type ListTask = {
   labels: { id: string; name: string; color: string }[];
   subtasks: { id: string; title: string; status: string; code: string | null }[];
   completedSubtaskCount: number;
+  childTasks?: { id: string; title: string; status: string; code: string | null }[];
+  completedChildTaskCount?: number;
   epic: { id: string; title: string; issueKey: string | null } | null;
   dueDate: string | null;
   createdAt: string;
@@ -146,6 +148,10 @@ export function ListView({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  function getChildTaskStatus(ct: { status?: string; code?: string | null }): string {
+    return ct.status || "TODO";
+  }
 
   const epicIds = useMemo(() => new Set(epics.map((e) => e.id)), [epics]);
 
@@ -409,6 +415,38 @@ export function ListView({
     );
   }
 
+  function renderChildTaskRow(ct: NonNullable<ListTask["childTasks"]>[0], hasNext: boolean, depth: number) {
+    return (
+      <tr key={`child-${ct.id}`} className="border-b border-gray-100 group hover:bg-blue-50/20 transition-colors">
+        <td className="px-3 py-2 w-10" />
+        <td className="px-3 py-2" colSpan={16}>
+          <div className="flex items-center gap-2" style={{ paddingLeft: `${depth * 18}px` }}>
+            <div className="flex items-stretch h-full mr-1">
+              <div className="w-[18px] shrink-0 relative">
+                <div className="absolute left-1/2 top-0 bottom-1/2 w-px bg-gray-200" />
+                <div className="absolute left-1/2 top-1/2 w-1/2 h-px bg-gray-200" />
+                {hasNext && (
+                  <div className="absolute left-1/2 bottom-0 w-px bg-gray-200" style={{ top: "50%" }} />
+                )}
+              </div>
+            </div>
+            <Indent className="h-3 w-3 text-blue-400 shrink-0" strokeWidth={2} />
+            <span className="font-mono text-[11px] text-gray-400 w-16 shrink-0">{ct.code ? `#${ct.code}` : "—"}</span>
+            <span className={`text-[12px] ${ct.status === "DONE" ? "line-through text-gray-400" : "text-gray-700 font-medium"}`}>
+              {ct.title}
+            </span>
+            <Badge variant={
+              ct.status === "DONE" ? "success" :
+              ct.status === "IN_PROGRESS" ? "info" : "default"
+            } size="sm">
+              {ct.status.replace("_", " ")}
+            </Badge>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   function renderSubtaskRow(st: ListTask["subtasks"][0], hasNext: boolean, depth: number) {
     return (
       <tr key={`sub-${st.id}`} className="border-b border-gray-100 group hover:bg-blue-50/20 transition-colors">
@@ -445,8 +483,10 @@ export function ListView({
     const isEpic = t.type === "EPIC";
     const hasChildren = isEpic && (grouped.epicChildren.get(t.id)?.length || 0) > 0;
     const hasSubtasks = t.subtasks.length > 0;
+    const hasChildTasks = (t.childTasks?.length || 0) > 0;
     const isExpanded = isEpic ? expandedEpics.has(t.id) : expandedTasks.has(t.id);
     const showSubtasks = hasSubtasks && isExpanded;
+    const showChildTasks = hasChildTasks && isExpanded;
 
     const children: ListTask[] = isEpic ? (grouped.epicChildren.get(t.id) || []) : [];
     const TypeConf = typeConfig[t.type] || typeConfig.TASK;
@@ -490,7 +530,7 @@ export function ListView({
           </td>
           <td className="px-3 py-2.5 w-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-0.5">
-              {(hasChildren || hasSubtasks) && (
+              {(hasChildren || hasSubtasks || hasChildTasks) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); isEpic ? toggleEpic(t.id) : toggleTask(t.id); }}
                   className="flex h-5 w-5 items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
@@ -498,7 +538,7 @@ export function ListView({
                   {isExpanded ? <ChevronDownIcon className="h-3 w-3" strokeWidth={2.5} /> : <ChevronRight className="h-3 w-3" strokeWidth={2.5} />}
                 </button>
               )}
-              {!hasChildren && !hasSubtasks && <span className="w-5" />}
+              {!hasChildren && !hasSubtasks && !hasChildTasks && <span className="w-5" />}
               <TypeIcon type={t.type} />
             </div>
           </td>
@@ -611,24 +651,34 @@ export function ListView({
             {t.subtasks.length > 0 && (
               <span className="font-medium">{t.completedSubtaskCount}/{t.subtasks.length}</span>
             )}
+            {(t.childTasks?.length || 0) > 0 && (
+              <span className="font-medium ml-1 text-gray-400">
+                +{t.completedChildTaskCount}/{t.childTasks?.length}
+              </span>
+            )}
           </td>
           <td className="px-3 py-2.5 whitespace-nowrap min-w-[90px]">
-            {t.subtasks.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-12 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${(t.completedSubtaskCount / t.subtasks.length) * 100}%` }}
-                  />
+            {(() => {
+              const total = t.subtasks.length + (t.childTasks?.length || 0);
+              if (total === 0) return null;
+              const completed = t.completedSubtaskCount + (t.completedChildTaskCount || 0);
+              const pct = Math.round((completed / total) * 100);
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-12 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-400">{pct}%</span>
                 </div>
-                <span className="text-[10px] font-medium text-gray-400">
-                  {Math.round((t.completedSubtaskCount / t.subtasks.length) * 100)}%
-                </span>
-              </div>
-            )}
+              );
+            })()}
           </td>
         </tr>
         {showSubtasks && t.subtasks.map((st, idx) => renderSubtaskRow(st, idx < t.subtasks.length - 1, depth + 1))}
+        {showChildTasks && t.childTasks!.map((ct, idx) => renderChildTaskRow(ct, idx < t.childTasks!.length - 1, depth + 1))}
         {hasChildren && isExpanded && children.map((child, idx) =>
           renderTaskRow(child, depth + 1, idx < children.length - 1, [...treeParentHasNext, hasNextSibling])
         )}
@@ -727,7 +777,7 @@ export function ListView({
           <button
             onClick={() => {
               setExpandedEpics(new Set(epics.map((e) => e.id)));
-              setExpandedTasks(new Set(tasks.filter((t) => t.subtasks.length > 0).map((t) => t.id)));
+              setExpandedTasks(new Set(tasks.filter((t) => t.subtasks.length > 0 || (t.childTasks?.length || 0) > 0).map((t) => t.id)));
             }}
             className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-300"
           >

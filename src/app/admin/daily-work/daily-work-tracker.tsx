@@ -18,11 +18,12 @@ type Entry = {
   projectKey: string | null;
   taskTitle: string | null;
   taskCode: string | null;
-  todayWork: string;
-  todayWorkCompleted: string;
+  todayWork: string | null;
+  todayWorkCompleted: string | null;
   yesterdayPlan: string | null;
   yesterdayCompleted: string | null;
-  tomorrowTask: string;
+  tomorrowTask: string | null;
+  aiSummary: string | null;
   status: string;
   blockers: string | null;
   referenceLinks: string | null;
@@ -76,6 +77,12 @@ export function DailyWorkTracker({ employees, projects }: { employees: Employee[
 
   useEffect(() => {
     loadEntries();
+    const interval = setInterval(loadEntries, 30000);
+    window.addEventListener("focus", loadEntries);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", loadEntries);
+    };
   }, []);
 
   async function loadEntries() {
@@ -103,8 +110,8 @@ export function DailyWorkTracker({ employees, projects }: { employees: Employee[
       result = result.filter(
         (e) =>
           e.employeeName.toLowerCase().includes(q) ||
-          e.todayWork.toLowerCase().includes(q) ||
-          e.tomorrowTask.toLowerCase().includes(q) ||
+          (e.todayWork && e.todayWork.toLowerCase().includes(q)) ||
+          (e.tomorrowTask && e.tomorrowTask.toLowerCase().includes(q)) ||
           (e.taskTitle && e.taskTitle.toLowerCase().includes(q))
       );
     }
@@ -240,8 +247,8 @@ export function DailyWorkTracker({ employees, projects }: { employees: Employee[
                       <p className="text-xs text-gray-500">Task</p>
                     </div>
                     <div className="truncate">
-                      <p className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${completionColors[entry.todayWorkCompleted] || "bg-gray-100 text-gray-600"}`}>
-                        {entry.todayWorkCompleted === "YES" ? "Completed" : entry.todayWorkCompleted === "PARTIALLY" ? "Partial" : entry.todayWorkCompleted === "NO" ? "Not Done" : entry.todayWorkCompleted}
+                      <p className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${(entry.todayWorkCompleted && completionColors[entry.todayWorkCompleted]) || "bg-gray-100 text-gray-600"}`}>
+                        {entry.todayWorkCompleted === "YES" ? "Completed" : entry.todayWorkCompleted === "PARTIALLY" ? "Partial" : entry.todayWorkCompleted === "NO" ? "Not Done" : entry.todayWorkCompleted || "-"}
                       </p>
                     </div>
                     <div className="text-right">
@@ -299,6 +306,13 @@ function ExpandedEntry({ entry, yesterday, formatDateTime, onViewSheet }: {
           <p className="text-sm text-gray-900 whitespace-pre-wrap">{entry.tomorrowTask}</p>
         </div>
       </div>
+
+      {entry.aiSummary ? (
+        <div>
+          <p className="text-xs font-medium text-gray-600 uppercase mb-1">AI Summary</p>
+          <p className="text-sm text-gray-900 italic">{entry.aiSummary}</p>
+        </div>
+      ) : null}
 
       {yesterday ? (
         <div>
@@ -428,6 +442,13 @@ function DailySheetModal({ entry, onClose }: { entry: Entry; onClose: () => void
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {entry.aiSummary && (
+            <div className="rounded-xl border border-gray-200 p-5 bg-blue-50/30">
+              <p className="text-xs font-medium text-blue-600 uppercase mb-2">AI Summary</p>
+              <p className="text-sm text-gray-900 italic">{entry.aiSummary}</p>
             </div>
           )}
 

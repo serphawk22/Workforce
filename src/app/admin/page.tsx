@@ -23,6 +23,7 @@ import {
   ExternalLink,
   TrendingUp,
   PlayCircle,
+  ListChecks,
 } from "lucide-react";
 
 function getWeekEnd(date: Date): Date {
@@ -67,10 +68,12 @@ export default async function AdminDashboardPage() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [totalEmployees, activeEmployees, totalTasks, totalProjects, columnStats, recentlyUpdated, unassignedCount, qaPendingCount, completedThisWeekCount, recentlyReleased, reassignedTodayCount, tasksWithoutUpdatesCount, tasksDueThisWeek, employeeWorkload, pendingWorkUpdatesCount, submittedTodayCount, overdueWorkUpdatesCount, workspace, labels] = await Promise.all([
+  const [totalEmployees, activeEmployees, totalTasks, totalProjects, totalChildTasks, completedChildTasks, columnStats, recentlyUpdated, unassignedCount, qaPendingCount, completedThisWeekCount, recentlyReleased, reassignedTodayCount, tasksWithoutUpdatesCount, tasksDueThisWeek, employeeWorkload, pendingWorkUpdatesCount, submittedTodayCount, overdueWorkUpdatesCount, workspace, labels] = await Promise.all([
     prisma.user.count({ where: { role: "EMPLOYEE" } }),
     prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
     prisma.task.count(),
+    prisma.task.count({ where: { parentTaskId: { not: null } } }),
+    prisma.task.count({ where: { parentTaskId: { not: null }, column: { name: { in: ["Done", "Released", "Closed"] } } } }),
     prisma.project.count(),
     prisma.task.groupBy({ by: ["columnId"], _count: true }),
     prisma.task.findMany({
@@ -149,8 +152,8 @@ export default async function AdminDashboardPage() {
             <h2 className="text-base font-semibold text-foreground">My Work</h2>
           </div>
           <div className="flex gap-2">
-            <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
-            <Link href="/my-projects"><Button variant="outline" size="sm">My Projects <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
+            <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
+            <Link href="/my-projects"><Button variant="secondary" size="sm">My Projects <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-4">
@@ -198,11 +201,13 @@ export default async function AdminDashboardPage() {
           { icon: <CheckCircle2 className="h-5 w-5" />, title: "Completed", value: completedCount, desc: `${totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0}% of all tasks`, color: "green" },
           { icon: <Clock className="h-5 w-5" />, title: "Pending", value: totalTasks - completedCount, desc: "Not yet completed", color: "amber" },
           { icon: <AlertTriangle className="h-5 w-5" />, title: "Overdue", value: overdueCount, desc: "Past due date", color: "red" },
+          { icon: <ListChecks className="h-5 w-5" />, title: "Subtasks", value: totalChildTasks, desc: `${completedChildTasks} completed (${totalChildTasks > 0 ? Math.round((completedChildTasks / totalChildTasks) * 100) : 0}%)`, color: "teal" },
         ].map((s, i) => {
           const colors: Record<string, string> = {
             blue: "bg-blue-500/10 text-blue-500", indigo: "bg-indigo-500/10 text-indigo-500",
             purple: "bg-purple-500/10 text-purple-500", green: "bg-success/10 text-success",
             amber: "bg-warning/10 text-warning", red: "bg-danger/10 text-danger",
+            teal: "bg-teal-500/10 text-teal-500",
           };
           return (
             <Card key={i} hover className="p-5">
@@ -287,7 +292,7 @@ export default async function AdminDashboardPage() {
                 ))}
               </div>
             </div>
-            <Link href="/admin/workload"><Button variant="outline" size="sm">View Workload</Button></Link>
+            <Link href="/admin/workload"><Button variant="secondary" size="sm">View Workload</Button></Link>
           </div>
         </Card>
       )}
@@ -327,7 +332,7 @@ export default async function AdminDashboardPage() {
                     <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
-                      <Badge variant="secondary" size="sm">{t.column.name}</Badge>
+                      <Badge variant="default" size="sm">{t.column.name}</Badge>
                     </div>
                   </div>
                   <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{formatDateTime(t.updatedAt)}</span>
@@ -361,7 +366,7 @@ export default async function AdminDashboardPage() {
                   <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
                   <div className="flex items-center gap-2 mt-1.5">
                     {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
-                    <Badge variant="secondary" size="sm">{t.column.name}</Badge>
+                    <Badge variant="default" size="sm">{t.column.name}</Badge>
                   </div>
                 </div>
                 <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{t.dateOfReleaseToProd ? formatDate(t.dateOfReleaseToProd) : ""}</span>
@@ -374,10 +379,10 @@ export default async function AdminDashboardPage() {
       <Card className="p-6">
         <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2"><ExternalLink className="h-5 w-5 text-muted-foreground" /> Quick Links</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/admin/team"><Button variant="default" size="sm">Team Overview</Button></Link>
-          <Link href="/dashboard"><Button variant="outline" size="sm">My Dashboard</Button></Link>
-          <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks</Button></Link>
-          <Link href="/admin/analytics"><Button variant="outline" size="sm">Analytics</Button></Link>
+          <Link href="/admin/team"><Button variant="primary" size="sm">Team Overview</Button></Link>
+          <Link href="/dashboard"><Button variant="secondary" size="sm">My Dashboard</Button></Link>
+          <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks</Button></Link>
+          <Link href="/admin/analytics"><Button variant="secondary" size="sm">Analytics</Button></Link>
         </div>
       </Card>
     </div>

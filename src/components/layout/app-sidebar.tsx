@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
+  Columns3,
   CheckSquare,
   FolderKanban,
   Calendar,
@@ -27,28 +28,25 @@ import {
 const employeeLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/daily-work", label: "Daily Work", icon: PenSquare },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/my-tasks", label: "My Tasks", icon: CheckSquare },
   { href: "/my-projects", label: "Projects", icon: FolderKanban },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/chat", label: "Chat", icon: MessageSquare },
 ];
 
 const adminLinks = [
   { href: "/admin", label: "Administration", icon: Shield },
-  { href: "/admin/employee-tracking", label: "Employee Work Tracking", icon: Activity },
-  { href: "/admin/daily-work", label: "Daily Work Tracker", icon: ClipboardList },
-  { href: "/admin/team", label: "Teams", icon: Users },
   { href: "/admin/all-tasks", label: "All Tasks", icon: CheckSquare },
   { href: "/admin/all-projects", label: "All Projects", icon: FolderKanban },
+  { href: "/admin/team", label: "Teams", icon: Users },
+  { href: "/admin/employee-tracking", label: "Work Updates", icon: Activity },
   { href: "/admin/analytics", label: "Analytics", icon: TrendingUp },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ isAdmin, userName, userImage }: { isAdmin?: boolean; userName?: string | null; userImage?: string | null }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
-  const isAdmin = session?.user?.role === "ADMIN";
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -150,13 +148,13 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex items-center gap-3 min-w-0">
               <Avatar
-                name={session?.user?.name || "User"}
-                url={session?.user?.image}
+                name={userName || "User"}
+                url={userImage}
                 size="sm"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {session?.user?.name}
+                  {userName}
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate">
                   {isAdmin ? "Administrator" : "Employee"}

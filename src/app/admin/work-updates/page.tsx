@@ -24,6 +24,15 @@ export type SubtaskRow = {
   workUpdate: WorkUpdateInfo | null;
 };
 
+export type ChildTaskRow = {
+  id: string;
+  code: string | null;
+  title: string;
+  columnName: string;
+  assigneeName: string | null;
+  workUpdate: WorkUpdateInfo | null;
+};
+
 export type TaskRow = {
   id: string;
   code: string | null;
@@ -34,6 +43,7 @@ export type TaskRow = {
   projectKey: string;
   assigneeName: string | null;
   subtasks: SubtaskRow[];
+  childTasks: ChildTaskRow[];
   lastUpdated: string;
   isAwaiting: boolean;
 };
@@ -47,6 +57,7 @@ export default async function AdminWorkUpdatesPage() {
         OR: [
           { workUpdates: { some: {} } },
           { subtasks: { some: { workUpdates: { some: {} } } } },
+          { childTasks: { some: { workUpdates: { some: {} } } } },
         ],
       },
       include: {
@@ -58,17 +69,32 @@ export default async function AdminWorkUpdatesPage() {
           },
           orderBy: { createdAt: "asc" },
         },
+        childTasks: {
+          include: {
+            assignee: { select: { id: true, name: true } },
+            column: { select: { name: true } },
+            workUpdates: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         workUpdates: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
     prisma.task.findMany({
-      where: { assigneeId: { not: null }, workUpdates: { none: {} }, subtasks: { none: { workUpdates: { some: {} } } } },
+      where: { assigneeId: { not: null }, workUpdates: { none: {} }, subtasks: { none: { workUpdates: { some: {} } } }, childTasks: { none: { workUpdates: { some: {} } } } },
       include: {
         assignee: { select: { id: true, name: true } },
         column: { select: { name: true, board: { select: { project: { select: { id: true, name: true, key: true } } } } } },
         subtasks: { select: { id: true, code: true, title: true, status: true }, orderBy: { createdAt: "asc" } },
+        childTasks: {
+          include: {
+            assignee: { select: { id: true, name: true } },
+            column: { select: { name: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -104,7 +130,11 @@ export default async function AdminWorkUpdatesPage() {
         .map((s) => s.workUpdates[0])
         .filter(Boolean)
         .sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
-      const lastUpdated = [lastWu, subtaskLatest].filter(Boolean).sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
+      const childTaskLatest = t.childTasks
+        .map((ct) => ct.workUpdates[0])
+        .filter(Boolean)
+        .sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
+      const lastUpdated = [lastWu, subtaskLatest, childTaskLatest].filter(Boolean).sort((a, b) => b!.createdAt.getTime() - a!.createdAt.getTime())[0];
       return {
         id: t.id,
         code: t.code,
@@ -120,6 +150,14 @@ export default async function AdminWorkUpdatesPage() {
           title: s.title,
           status: s.status,
           workUpdate: pickWorkUpdateInfo(s.workUpdates[0]),
+        })),
+        childTasks: t.childTasks.map((ct) => ({
+          id: ct.id,
+          code: ct.code,
+          title: ct.title,
+          columnName: ct.column.name,
+          assigneeName: ct.assignee?.name ?? null,
+          workUpdate: pickWorkUpdateInfo(ct.workUpdates[0]),
         })),
         lastUpdated: lastUpdated?.createdAt.toISOString() ?? t.createdAt.toISOString(),
         isAwaiting: false,
@@ -139,6 +177,14 @@ export default async function AdminWorkUpdatesPage() {
         code: s.code,
         title: s.title,
         status: s.status,
+        workUpdate: null as WorkUpdateInfo | null,
+      })),
+      childTasks: t.childTasks.map((ct) => ({
+        id: ct.id,
+        code: ct.code,
+        title: ct.title,
+        columnName: ct.column.name,
+        assigneeName: ct.assignee?.name ?? null,
         workUpdate: null as WorkUpdateInfo | null,
       })),
       lastUpdated: t.createdAt.toISOString(),

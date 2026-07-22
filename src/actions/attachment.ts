@@ -37,6 +37,7 @@ export async function uploadAttachment(taskId: string, formData: FormData) {
 }
 
 export async function getAttachments(taskId: string) {
+  await requireAuth();
   const attachments = await prisma.attachment.findMany({
     where: { taskId },
     include: { uploadedBy: { select: { name: true } } },

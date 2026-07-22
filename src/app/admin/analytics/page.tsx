@@ -15,6 +15,23 @@ export default async function AnalyticsPage() {
 
   const now = new Date();
 
+  const childTasks = await prisma.task.findMany({
+    where: { parentTaskId: { not: null } },
+    include: { parentTask: { include: { column: { include: { board: { include: { project: true } } } } } }, column: { select: { name: true } }, assignee: { select: { id: true, name: true } } },
+  });
+
+  const subtaskStatusCounts: Record<string, number> = {};
+  const subtaskPerProject: Record<string, { total: number; completed: number }> = {};
+  for (const ct of childTasks) {
+    subtaskStatusCounts[ct.column.name] = (subtaskStatusCounts[ct.column.name] || 0) + 1;
+    const projectName = ct.parentTask?.column.board.project.name || "Unknown";
+    if (!subtaskPerProject[projectName]) subtaskPerProject[projectName] = { total: 0, completed: 0 };
+    subtaskPerProject[projectName].total++;
+    if (["Done", "Released", "Closed"].includes(ct.column.name)) {
+      subtaskPerProject[projectName].completed++;
+    }
+  }
+
   const statusCounts: Record<string, number> = {};
   const priorityCounts: Record<string, number> = {};
   const employeeCounts: Record<string, { name: string; count: number; completed: number }> = {};
@@ -149,6 +166,56 @@ export default async function AnalyticsPage() {
             })}
             {Object.keys(priorityCounts).length === 0 && <p className="text-sm text-gray-400 text-center py-4">No data</p>}
           </div>
+        </div>
+      </div>
+
+      {/* Subtask Statistics */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Subtasks by Status</h2>
+          {Object.keys(subtaskStatusCounts).length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No subtasks</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(subtaskStatusCounts).sort(([, a], [, b]) => b - a).map(([status, count]) => {
+                const pct = Math.round((count / Math.max(...Object.values(subtaskStatusCounts), 1)) * 100);
+                return (
+                  <div key={status}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-700">{status}</span>
+                      <span className="text-gray-500">{count}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className={`h-full rounded-full ${statusColors[status] || "bg-gray-400"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Subtasks per Project</h2>
+          {Object.keys(subtaskPerProject).length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No subtask data</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(subtaskPerProject).sort(([, a], [, b]) => b.total - a.total).slice(0, 10).map(([project, stats]) => {
+                const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+                return (
+                  <div key={project}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-700 truncate">{project}</span>
+                      <span className="text-gray-500">{stats.completed}/{stats.total}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

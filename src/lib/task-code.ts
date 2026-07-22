@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function generateNextTaskCode(): Promise<string> {
   const tasks = await prisma.task.findMany({
-    where: { code: { not: null } },
+    where: { code: { not: null }, parentTaskId: null },
     select: { code: true },
   });
 
@@ -15,6 +15,27 @@ export async function generateNextTaskCode(): Promise<string> {
   }
 
   return String(maxNum + 1);
+}
+
+export async function generateNextChildTaskCode(parentCode: string): Promise<string> {
+  const childTasks = await prisma.task.findMany({
+    where: { code: { not: null }, parentTask: { code: parentCode } },
+    select: { code: true },
+  });
+
+  const prefix = `${parentCode}.`;
+  let maxSuffix = 0;
+  for (const t of childTasks) {
+    if (t.code && t.code.startsWith(prefix)) {
+      const suffix = t.code.slice(prefix.length);
+      if (/^\d+$/.test(suffix)) {
+        const n = parseInt(suffix, 10);
+        if (n > maxSuffix) maxSuffix = n;
+      }
+    }
+  }
+
+  return `${parentCode}.${maxSuffix + 1}`;
 }
 
 export async function generateNextSubtaskCode(taskCode: string): Promise<string> {

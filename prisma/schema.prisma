@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -58,7 +58,6 @@ model User {
   notifications           Notification[]
   subtasks                Subtask[]
   workUpdates             WorkUpdate[]
-  dailyWorkEntries        DailyWorkEntry[]
   chatChannels            ChatChannel[]          @relation("ChannelCreator")
   chatMessages            ChatMessage[]          @relation("MessageAuthor")
   channelMemberships      ChatChannelMember[]
@@ -76,6 +75,7 @@ model Workspace {
   invites  PendingInvite[]
 
   @@unique([ownerId, name])
+  @@index([ownerId])
 }
 
 model WorkspaceMember {
@@ -88,6 +88,8 @@ model WorkspaceMember {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, workspaceId])
+  @@index([userId])
+  @@index([workspaceId])
 }
 
 model PendingInvite {
@@ -116,7 +118,8 @@ model Project {
   boards    Board[]
   labels    Label[]
   sprints   Sprint[]
-  dailyWorkEntries DailyWorkEntry[]
+
+  @@index([workspaceId])
 }
 
 model Board {
@@ -138,6 +141,8 @@ model Column {
 
   board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
   tasks Task[]
+
+  @@index([boardId])
 }
 
 model Sprint {
@@ -153,6 +158,8 @@ model Sprint {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
+
+  @@index([projectId])
 }
 
 model Task {
@@ -162,6 +169,7 @@ model Task {
   description String?
   type        String    @default("TASK") // EPIC, TASK, STORY, BUG, FEATURE_REQUEST, IMPROVEMENT, SUBTASK
   epicId      String?
+  parentTaskId String?
   priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
   assigneeId  String?
   reporterId  String
@@ -187,6 +195,8 @@ model Task {
   sprint    Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   epic      Task?       @relation("TaskEpic", fields: [epicId], references: [id], onDelete: SetNull)
   epics     Task[]      @relation("TaskEpic")
+  parentTask Task?      @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks Task[]     @relation("TaskChildren")
   labels        TaskLabel[]
   comments      Comment[]
   reassignments ReassignmentHistory[]
@@ -195,7 +205,13 @@ model Task {
   notifications Notification[]
   subtasks      Subtask[]
   workUpdates   WorkUpdate[]
-  dailyWorkEntries DailyWorkEntry[]
+
+  @@index([columnId])
+  @@index([assigneeId])
+  @@index([reporterId])
+  @@index([sprintId])
+  @@index([epicId])
+  @@index([parentTaskId])
 }
 
 model ChatChannel {
@@ -248,6 +264,7 @@ model Label {
   taskLabels TaskLabel[]
 
   @@unique([name, projectId])
+  @@index([projectId])
 }
 
 model TaskLabel {
@@ -270,6 +287,8 @@ model Comment {
 
   task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
 }
 
 model ReassignmentHistory {
@@ -300,6 +319,9 @@ model ActivityLog {
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
 }
 
 model Attachment {
@@ -314,6 +336,8 @@ model Attachment {
 
   task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
 }
 
 model Notification {
@@ -328,6 +352,9 @@ model Notification {
 
   task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([taskId])
 }
 
 model Subtask {
@@ -343,11 +370,13 @@ model Subtask {
   task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
   workUpdates WorkUpdate[]
+
+  @@index([taskId])
 }
 
 model WorkUpdate {
   id           String   @id @default(cuid())
-  taskId       String
+  taskId       String?
   userId       String
   subtaskId    String?
   status       String   // TODO, IN_PROGRESS, REVIEW, TESTING, DONE
@@ -355,33 +384,23 @@ model WorkUpdate {
   workSummary  String?
   githubLink   String?
   productionUrl String?
-  timeSpent    Int      @default(0) // minutes
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime? @updatedAt
+  timeSpent          Int      @default(0) // minutes
+  todayWork          String?
+  todayWorkCompleted String?  // YES, PARTIALLY, NO
+  yesterdayPlan      String?  // JSON: yesterday's planned tasks
+  yesterdayCompleted String?  // JSON: which yesterday tasks were completed
+  tomorrowTask       String?
+  blockers           String?
+  referenceLinks     String?  // JSON array of {type, url}
+  attachments        String?  // JSON array of {name, url, type}
+  aiSummary          String?  // AI-generated work summary
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime? @updatedAt
 
-  task    Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subtask Subtask? @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
-}
 
-model DailyWorkEntry {
-  id                   String   @id @default(cuid())
-  employeeId           String
-  projectId            String?
-  taskId               String?
-  todayWork            String
-  todayWorkCompleted   String   // YES, PARTIALLY, NO
-  yesterdayPlan        String?  // JSON: yesterday's planned tasks
-  yesterdayCompleted   String?  // JSON: which yesterday tasks were completed
-  tomorrowTask         String
-  status               String   // COMPLETED, IN_PROGRESS, BLOCKED, NEED_REVIEW
-  blockers             String?
-  referenceLinks       String?  // JSON array of {type, url}
-  attachments          String?  // JSON array of {name, url, type}
-  submittedAt          DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  employee User    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  @@index([taskId])
+  @@index([userId])
 }

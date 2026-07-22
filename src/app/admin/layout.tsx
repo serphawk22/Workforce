@@ -26,7 +26,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <AppSidebar />
+      <AppSidebar isAdmin={session.user.role === "ADMIN"} userName={session.user.name} userImage={session.user.image} />
       <div className="flex flex-1 flex-col ml-[280px] transition-all duration-200">
         <AppNavbar members={members} projects={projects} />
         <main className="flex-1">

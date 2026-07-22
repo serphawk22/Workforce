@@ -8,6 +8,7 @@ export const createTaskSchema = z.object({
   description: z.string().optional(),
   type: z.enum(issueTypes).optional(),
   epicId: z.string().optional(),
+  parentTaskId: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
   assigneeId: z.string().optional(),
   reporterId: z.string().optional(),

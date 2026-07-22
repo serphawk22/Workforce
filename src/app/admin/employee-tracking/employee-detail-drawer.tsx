@@ -421,6 +421,7 @@ export function EmployeeDetailDrawer({ employee, onClose }: { employee: Employee
                                 </span>
                               </div>
                               <p className="text-sm font-medium text-gray-900 mt-0.5">{ds.taskTitle || ds.projectName || "Daily Work"}</p>
+                            {ds.aiSummary && <p className="text-xs text-blue-600 italic mt-1">{ds.aiSummary}</p>}
                             </div>
                             <div className="flex items-center gap-1.5 ml-2 shrink-0">
                               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ds.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700" : ds.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700" : ds.status === "BLOCKED" ? "bg-red-50 text-red-700" : ds.status === "NEED_REVIEW" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-600"}`}>

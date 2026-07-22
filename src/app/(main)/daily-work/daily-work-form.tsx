@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { submitDailyWork, getProjectTasks, getYesterdaysPlan } from "@/actions/daily-work";
+import { submitDailyWork, getProjectTasks, getYesterdaysPlan, getParentChildTasks, createDailyWorkChildTask } from "@/actions/daily-work";
 import { getSubtacks } from "@/actions/subtask";
-import { Check, GitBranch, Globe, Clock, ListChecks } from "lucide-react";
+import { Check, GitBranch, Globe, Clock, ListChecks, FolderTree, Plus } from "lucide-react";
 
 type Employee = { id: string; name: string; email: string; department: string | null };
 type Project = { id: string; name: string; key: string };
@@ -35,6 +35,10 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
   const [status, setStatus]             = useState("IN_PROGRESS");
   const [subtasks, setSubtasks]         = useState<Subtask[]>([]);
   const [subtaskId, setSubtaskId]       = useState("");
+  const [childTasks, setChildTasks]     = useState<{ id: string; title: string; code: string | null }[]>([]);
+  const [childTaskId, setChildTaskId]   = useState("");
+  const [newChildTaskTitle, setNewChildTaskTitle] = useState("");
+  const [creatingChildTask, setCreatingChildTask] = useState(false);
   const [progressNotes, setProgressNotes] = useState("");
   const [githubLink, setGithubLink]     = useState("");
   const [productionUrl, setProductionUrl] = useState("");
@@ -68,13 +72,20 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
     setSubtasks(result.map((s) => ({ id: s.id, title: s.title, status: s.status })));
   }, []);
 
+  const loadChildTasks = useCallback(async (tid: string) => {
+    if (!tid) { setChildTasks([]); return; }
+    const result = await getParentChildTasks(tid);
+    setChildTasks(result);
+  }, []);
+
   useEffect(() => {
     loadTasks(projectId);
   }, [projectId, loadTasks]);
 
   useEffect(() => {
     loadSubtasks(taskId);
-  }, [taskId, loadSubtasks]);
+    loadChildTasks(taskId);
+  }, [taskId, loadSubtasks, loadChildTasks]);
 
   const loadYesterdayPlan = useCallback(async (empId: string) => {
     const plan = await getYesterdaysPlan(empId);
@@ -139,6 +150,17 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
 
   function getYesterdayTaskStatus(task: string): string {
     return yesterdayStatuses.find((x) => x.task === task)?.status || "";
+  }
+
+  async function handleCreateChildTask() {
+    if (!newChildTaskTitle.trim() || !taskId) return;
+    setCreatingChildTask(true);
+    const result = await createDailyWorkChildTask(taskId, newChildTaskTitle.trim());
+    if (result?.id) {
+      setChildTasks((prev) => [...prev, { id: result.id, title: result.title, code: result.code }]);
+      setNewChildTaskTitle("");
+    }
+    setCreatingChildTask(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -310,23 +332,48 @@ export function DailyWorkForm({ employees, projects }: { employees: Employee[]; 
         )}
       </div>
 
-      {/* ── Subtask (only if a task is selected and it has subtasks) ── */}
-      {taskId && subtasks.length > 0 && (
+      {/* ── Child Tasks (Task hierarchy) ── */}
+      {taskId && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
-            <ListChecks className="h-4 w-4 text-gray-400" />
+            <FolderTree className="h-4 w-4 text-gray-400" />
             Subtask <span className="font-normal text-gray-400">(optional)</span>
           </label>
-          <select
-            value={subtaskId}
-            onChange={(e) => setSubtaskId(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
-          >
-            <option value="">No specific subtask</option>
-            {subtasks.map((s) => (
-              <option key={s.id} value={s.id}>{s.title} ({s.status.replace("_", " ")})</option>
-            ))}
-          </select>
+          {childTasks.length > 0 ? (
+            <select
+              value={childTaskId}
+              onChange={(e) => setChildTaskId(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+            >
+              <option value="">No specific subtask</option>
+              {childTasks.map((ct) => (
+                <option key={ct.id} value={ct.id}>{ct.code ? `#${ct.code} ` : ""}{ct.title}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No subtasks available</p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <input
+              value={newChildTaskTitle}
+              onChange={(e) => setNewChildTaskTitle(e.target.value)}
+              placeholder="New subtask title..."
+              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleCreateChildTask}
+              disabled={creatingChildTask || !newChildTaskTitle.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Subtask
+            </button>
+          </div>
+          {creatingChildTask && <p className="text-xs text-gray-400 mt-1">Creating...</p>}
+          <p className="text-xs text-gray-400 mt-2">
+            Subtasks appear on the Kanban board under the parent task with hierarchical codes.
+          </p>
         </div>
       )}
 

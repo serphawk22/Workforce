@@ -17,6 +17,8 @@ import { EmployeeTrackingClient } from "./employee-tracking-client";
   inProgressTasks: number;
   blockedTasks: number;
   overdueTasks: number;
+  subtaskCount: number;
+  completedSubtaskCount: number;
   hoursLogged: number;
   lastWorkUpdate: string | null;
   lastActivity: string | null;
@@ -78,6 +80,7 @@ import { EmployeeTrackingClient } from "./employee-tracking-client";
     yesterdayCompleted: string | null;
     tomorrowTask: string;
     blockers: string | null;
+    aiSummary: string | null;
     referenceLinks: string | null;
     attachments: string | null;
   }[];
@@ -116,11 +119,12 @@ export default async function EmployeeTrackingPage() {
           include: {
             column: { select: { name: true, board: { select: { project: { select: { id: true, name: true } } } } } },
             sprint: { select: { id: true, name: true } },
+            childTasks: { select: { id: true, column: { select: { name: true } } } },
           },
         },
         workUpdates: {
           include: {
-            task: { select: { id: true, title: true, column: { select: { board: { select: { project: { select: { name: true } } } } } } } },
+            task: { select: { id: true, title: true, code: true, column: { select: { board: { select: { project: { select: { id: true, name: true } } } } } } } },
             subtask: { select: { id: true, title: true } },
           },
           orderBy: { createdAt: "desc" },
@@ -129,14 +133,6 @@ export default async function EmployeeTrackingPage() {
           include: { task: { select: { id: true, title: true } } },
           orderBy: { createdAt: "desc" },
           take: 100,
-        },
-        dailyWorkEntries: {
-          include: {
-            project: { select: { id: true, name: true } },
-            task: { select: { id: true, title: true, code: true } },
-          },
-          orderBy: { submittedAt: "desc" },
-          take: 50,
         },
       },
       orderBy: { name: "asc" },
@@ -187,6 +183,8 @@ export default async function EmployeeTrackingPage() {
     const blockedTasks = tasks.filter((t) => blockedColumnNames.includes(t.column.name)).length;
     const overdueTasks = tasks.filter((t) => t.dueDate && new Date(t.dueDate) < now && !completedColumnNames.includes(t.column.name)).length;
     const hoursLogged = workUpdates.reduce((sum, wu) => sum + (wu.timeSpent || 0), 0) / 60;
+    const subtaskCount = tasks.filter((t) => (t as any).childTasks?.length > 0).reduce((sum, t) => sum + ((t as any).childTasks?.length || 0), 0);
+    const completedSubtaskCount = tasks.filter((t) => (t as any).childTasks?.length > 0).reduce((sum, t) => sum + ((t as any).childTasks?.filter((ct: any) => completedColumnNames.includes(ct.column?.name || "")).length || 0), 0);
 
     const lastWorkUpdate = workUpdates.length > 0 ? workUpdates[0].createdAt.toISOString() : null;
     const lastActivity = user.activityLogEntries.length > 0 ? user.activityLogEntries[0].createdAt.toISOString() : null;
@@ -217,6 +215,8 @@ export default async function EmployeeTrackingPage() {
       inProgressTasks,
       blockedTasks,
       overdueTasks,
+      subtaskCount,
+      completedSubtaskCount,
       hoursLogged: Math.round(hoursLogged * 10) / 10,
       lastWorkUpdate,
       lastActivity,
@@ -238,8 +238,8 @@ export default async function EmployeeTrackingPage() {
       workUpdates: workUpdates.map((wu) => ({
         id: wu.id,
         date: wu.createdAt.toISOString(),
-        projectName: wu.task.column.board.project.name,
-        taskTitle: wu.task.title,
+        projectName: wu.task?.column?.board?.project?.name ?? "",
+        taskTitle: wu.task?.title ?? "",
         subtaskTitle: wu.subtask?.title ?? null,
         status: wu.status,
         timeSpent: wu.timeSpent,
@@ -248,22 +248,25 @@ export default async function EmployeeTrackingPage() {
         githubLink: wu.githubLink,
         productionUrl: wu.productionUrl,
       })),
-      dailySheets: user.dailyWorkEntries.map((dwe) => ({
-        id: dwe.id,
-        submittedAt: dwe.submittedAt.toISOString(),
-        projectName: dwe.project?.name ?? null,
-        taskTitle: dwe.task?.title ?? null,
-        taskCode: dwe.task?.code ?? null,
-        todayWork: dwe.todayWork,
-        todayWorkCompleted: dwe.todayWorkCompleted,
-        status: dwe.status,
-        yesterdayPlan: dwe.yesterdayPlan,
-        yesterdayCompleted: dwe.yesterdayCompleted,
-        tomorrowTask: dwe.tomorrowTask,
-        blockers: dwe.blockers,
-        referenceLinks: dwe.referenceLinks,
-        attachments: dwe.attachments,
-      })),
+      dailySheets: workUpdates
+        .filter((wu) => wu.todayWork)
+        .map((wu) => ({
+          id: wu.id,
+          submittedAt: wu.createdAt.toISOString(),
+          projectName: wu.task?.column?.board?.project?.name ?? null,
+          taskTitle: wu.task?.title ?? null,
+          taskCode: wu.task?.code ?? null,
+          todayWork: wu.todayWork ?? "",
+          todayWorkCompleted: wu.todayWorkCompleted ?? "",
+          status: wu.status,
+          yesterdayPlan: wu.yesterdayPlan ?? null,
+          yesterdayCompleted: wu.yesterdayCompleted ?? null,
+          tomorrowTask: wu.tomorrowTask ?? "",
+          blockers: wu.blockers ?? null,
+          aiSummary: wu.aiSummary ?? null,
+          referenceLinks: wu.referenceLinks ?? null,
+          attachments: wu.attachments ?? null,
+        })),
       activityLog: maxLogEntries.map((log) => ({
         id: log.id,
         action: log.action,
@@ -284,8 +287,8 @@ export default async function EmployeeTrackingPage() {
   );
 
   const dailySheetsToday = users.reduce((sum, u) => {
-    const todayEntries = u.dailyWorkEntries.filter(
-      (dwe) => dwe.submittedAt >= today.start && dwe.submittedAt <= today.end
+    const todayEntries = u.workUpdates.filter(
+      (wu) => wu.todayWork && wu.createdAt >= today.start && wu.createdAt <= today.end
     );
     return sum + todayEntries.length;
   }, 0);

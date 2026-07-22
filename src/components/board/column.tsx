@@ -9,7 +9,7 @@ import { renameColumn, deleteColumn } from "@/actions/column";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
-import { Plus, MoreHorizontal, GripVertical } from "lucide-react";
+import { Plus, MoreHorizontal, ChevronRight, ChevronDown } from "lucide-react";
 
 type SubtaskInfo = {
   id: string;
@@ -37,6 +37,9 @@ type TaskData = {
   dateOfReleaseToProd: string | null;
   subtasks: SubtaskInfo[];
   completedSubtaskCount: number;
+  childTasks?: TaskData[];
+  childTaskCount?: number;
+  completedChildTaskCount?: number;
 };
 
 type ColumnData = {
@@ -59,6 +62,16 @@ export function Column({
   const [showRename, setShowRename] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+
+  function toggleParent(taskId: string) {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
 
   async function handleRename(name: string) {
     const formData = new FormData();
@@ -119,9 +132,34 @@ export function Column({
 
       <div className="flex-1 space-y-3">
         <SortableContext items={column.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-          {column.tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
-          ))}
+          {column.tasks.map((task) => {
+            const hasChildTasks = task.childTasks && task.childTasks.length > 0;
+            const isExpanded = expandedParents.has(task.id);
+            return (
+              <div key={task.id}>
+                <div className="relative">
+                  {hasChildTasks && (
+                    <button
+                      onClick={() => toggleParent(task.id)}
+                      className="absolute -left-1 top-3 z-10 flex h-5 w-5 items-center justify-center rounded-md bg-background border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all shadow-sm"
+                    >
+                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                  )}
+                  <div className={`${hasChildTasks ? "pl-5" : ""}`}>
+                    <TaskCard task={task} onClick={() => onTaskClick(task)} />
+                  </div>
+                </div>
+                {hasChildTasks && isExpanded && (
+                  <div className="ml-6 mt-1.5 space-y-1.5 border-l-2 border-border/40 pl-3">
+                    {task.childTasks!.map((child) => (
+                      <TaskCard key={child.id} task={child} onClick={() => onTaskClick(child)} isChild />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </SortableContext>
       </div>
 

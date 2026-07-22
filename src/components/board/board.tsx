@@ -44,6 +44,9 @@ type TaskData = {
   dateOfReleaseToProd: string | null;
   subtasks: SubtaskInfo[];
   completedSubtaskCount: number;
+  childTasks?: TaskData[];
+  childTaskCount?: number;
+  completedChildTaskCount?: number;
 };
 
 
@@ -70,6 +73,7 @@ export function Board({
   members,
   labels,
   sprints,
+  parentTasks,
 }: {
   projectId: string;
   boardId: string;
@@ -77,6 +81,7 @@ export function Board({
   members: Member[];
   labels: Label[];
   sprints?: SprintItem[];
+  parentTasks?: { id: string; title: string; code: string | null; issueKey: string | null }[];
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -310,6 +315,7 @@ export function Board({
           projectId={projectId}
           members={members}
           labels={labels}
+          parentTasks={parentTasks}
           onClose={() => setCreateTaskColumnId(null)}
           onTaskCreated={() => {
             window.location.reload();

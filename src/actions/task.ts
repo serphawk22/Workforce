@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { createTaskSchema, updateTaskSchema, moveTaskSchema } from "@/lib/schemas";
 import { logActivity } from "@/lib/activity-log";
-import { generateNextTaskCode } from "@/lib/task-code";
+import { generateNextTaskCode, generateNextChildTaskCode } from "@/lib/task-code";
 
 export async function createTask(formData: FormData): Promise<{ error: Record<string, string[]>; id?: undefined } | { id: string; error?: undefined }> {
   const session = await requireAuth();
@@ -19,6 +19,8 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   if (typeField) raw.type = typeField;
   const epic = formData.get("epicId");
   if (epic) raw.epicId = epic;
+  const parentTaskField = formData.get("parentTaskId");
+  if (parentTaskField) raw.parentTaskId = parentTaskField;
   const prio = formData.get("priority");
   if (prio) raw.priority = prio;
   const assignee = formData.get("assigneeId");
@@ -37,7 +39,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   const parsed = createTaskSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  const { columnId: rawColumnId, title, description, type, epicId, priority, assigneeId, reporterId, dueDate, sprintId, labelIds, projectId } = parsed.data;
+  const { columnId: rawColumnId, title, description, type, epicId, parentTaskId, priority, assigneeId, reporterId, dueDate, sprintId, labelIds, projectId } = parsed.data;
 
   let columnId = rawColumnId;
   let projectIdResolved: string;
@@ -70,7 +72,16 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
   });
   if (!member) return { error: { _form: ["Not authorized"] } };
 
-  const code = await generateNextTaskCode();
+  let parentTaskCode: string | null = null;
+  if (parentTaskId) {
+    const parent = await prisma.task.findUnique({ where: { id: parentTaskId }, select: { code: true } });
+    if (!parent || !parent.code) return { error: { _form: ["Parent task not found or has no code"] } };
+    parentTaskCode = parent.code;
+  }
+
+  const code = parentTaskCode
+    ? await generateNextChildTaskCode(parentTaskCode)
+    : await generateNextTaskCode();
 
   const maxOrder = await prisma.task.aggregate({
     where: { columnId },
@@ -85,6 +96,7 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
       description: description || null,
       type: type || "TASK",
       epicId: epicId || null,
+      parentTaskId: parentTaskId || null,
       priority: priority || "MEDIUM",
       assigneeId: assigneeId || null,
       reporterId: reporterId || session.user.id,
@@ -98,8 +110,8 @@ export async function createTask(formData: FormData): Promise<{ error: Record<st
     },
   });
 
-  await logActivity(task.id, session.user.id, "created", {
-    metadata: { issueKey: code, title },
+  await logActivity(task.id, session.user.id, parentTaskId ? "subtask_created" : "created", {
+    metadata: { issueKey: code, title, parentTaskId: parentTaskId || undefined },
   });
 
   if (assigneeId) {

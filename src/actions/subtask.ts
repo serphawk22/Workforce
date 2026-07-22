@@ -62,6 +62,7 @@ export async function updateSubtaskStatus(subtaskId: string, status: string) {
 }
 
 export async function getSubtacks(taskId: string) {
+  await requireAuth();
   const subtasks = await prisma.subtask.findMany({
     where: { taskId },
     include: { createdBy: { select: { id: true, name: true } } },

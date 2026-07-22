@@ -8,6 +8,7 @@ type Member = { id: string; name: string; email: string };
 type Label = { id: string; name: string; color: string };
 type ProjectItem = { id: string; name: string; key: string };
 type EpicItem = { id: string; title: string; issueKey: string | null };
+type ParentTaskItem = { id: string; title: string; code: string | null; issueKey: string | null };
 
 export function CreateTaskModal({
   columnId,
@@ -16,6 +17,7 @@ export function CreateTaskModal({
   labels,
   projects,
   epics,
+  parentTasks,
   onClose,
   onTaskCreated,
 }: {
@@ -25,6 +27,7 @@ export function CreateTaskModal({
   labels?: Label[];
   projects?: ProjectItem[];
   epics?: EpicItem[];
+  parentTasks?: ParentTaskItem[];
   onClose: () => void;
   onTaskCreated?: () => void;
 }) {
@@ -36,12 +39,15 @@ export function CreateTaskModal({
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [epicId, setEpicId] = useState("");
+  const [parentTaskId, setParentTaskId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || "");
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isGlobalCreate = !columnId;
+
+  const isSubtask = issueType === "SUBTASK";
 
   const issueTypeOptions = [
     { value: "EPIC", label: "Epic", icon: "⬡" },
@@ -63,6 +69,10 @@ export function CreateTaskModal({
       setError("Please select a project");
       return;
     }
+    if (isSubtask && !parentTaskId) {
+      setError("Please select a parent task");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -74,6 +84,7 @@ export function CreateTaskModal({
     formData.set("priority", priority);
     formData.set("assigneeId", assigneeId);
     if (epicId) formData.set("epicId", epicId);
+    if (isSubtask && parentTaskId) formData.set("parentTaskId", parentTaskId);
     if (isGlobalCreate) formData.set("projectId", selectedProjectId);
     if (dueDate) formData.set("dueDate", new Date(dueDate).toISOString());
     selectedLabelIds.forEach((id) => formData.append("labelIds", id));
@@ -99,6 +110,7 @@ export function CreateTaskModal({
 
   const availableMembers = members || [];
   const availableLabels = labels || [];
+  const availableParentTasks = parentTasks || [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -146,6 +158,18 @@ export function CreateTaskModal({
               ))}
             </div>
           </div>
+
+          {isSubtask && availableParentTasks.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Parent Task *</label>
+              <select value={parentTaskId} onChange={(e) => setParentTaskId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-all hover:border-gray-400 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900">
+                <option value="">Select parent task...</option>
+                {availableParentTasks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.code ? `#${t.code} ` : ""}{t.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Summary *</label>

@@ -118,6 +118,8 @@ export async function submitWorkUpdate(formData: FormData) {
     });
 
     revalidatePath(`/project/${newTask.column.board.projectId}`);
+    revalidatePath("/admin/daily-work");
+    revalidatePath("/admin/employee-tracking");
     revalidatePath("/dashboard");
     return { success: true, workUpdateId: workUpdate.id, isNewTask: true, taskId: newTask.id };
   }
@@ -191,13 +193,17 @@ export async function submitWorkUpdate(formData: FormData) {
   });
 
   revalidatePath(`/project/${task.column.board.projectId}`);
+  revalidatePath("/admin/daily-work");
+  revalidatePath("/admin/employee-tracking");
   revalidatePath("/dashboard");
   return { success: true, workUpdateId: workUpdate.id };
 }
 
 export async function getWorkUpdates(taskId?: string) {
+  const session = await requireAuth();
   const where: Record<string, unknown> = {};
   if (taskId) where.taskId = taskId;
+  if (!(await isAdmin())) where.userId = session.user.id;
 
   const updates = await prisma.workUpdate.findMany({
     where,
@@ -231,8 +237,9 @@ export async function getWorkUpdates(taskId?: string) {
 }
 
 export async function getEmployeeProjects(userId: string) {
+  await requireAuth();
   const tasks = await prisma.task.findMany({
-    where: { assigneeId: userId },
+    where: { assigneeId: userId, parentTaskId: null },
     include: {
       column: { include: { board: { include: { project: true } } } },
     },
@@ -252,7 +259,18 @@ export async function getEmployeeProjects(userId: string) {
   return Array.from(projectMap.values());
 }
 
+export async function getWorkUpdateChildTasks(taskId: string) {
+  await requireAuth();
+  if (!taskId) return [];
+  return await prisma.task.findMany({
+    where: { parentTaskId: taskId },
+    select: { id: true, title: true, code: true },
+    orderBy: { order: "asc" },
+  });
+}
+
 export async function getNextCode() {
+  await requireAuth();
   return await generateNextTaskCode();
 }
 

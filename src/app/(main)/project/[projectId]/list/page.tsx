@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSetup } from "@/lib/require-setup";
 import { ListView } from "@/components/list/list-view";
 
+const doneColumnNames = ["Done", "Released", "Closed"];
+
 export const dynamic = "force-dynamic";
 
 export default async function ProjectListPage(props: {
@@ -38,7 +40,7 @@ export default async function ProjectListPage(props: {
   const board = project.boards[0];
   const allColumnIds = board?.columns.map((c) => c.id) || [];
 
-  const tasks = await prisma.task.findMany({
+  const allTasks = await prisma.task.findMany({
     where: { columnId: { in: allColumnIds } },
     include: {
       assignee: { select: { id: true, name: true, email: true, avatarUrl: true } },
@@ -51,9 +53,23 @@ export default async function ProjectListPage(props: {
         orderBy: { createdAt: "asc" },
       },
       epic: { select: { id: true, title: true, issueKey: true } },
+      childTasks: {
+        include: {
+          assignee: { select: { id: true, name: true, email: true, avatarUrl: true } },
+          reporter: { select: { id: true, name: true, email: true } },
+          column: { select: { id: true, name: true } },
+          sprint: { select: { id: true, name: true, status: true } },
+          labels: { include: { label: true } },
+          subtasks: { select: { id: true, title: true, status: true, code: true }, orderBy: { createdAt: "asc" } },
+          epic: { select: { id: true, title: true, issueKey: true } },
+        },
+        orderBy: { order: "asc" },
+      },
     },
     orderBy: [{ epicId: "asc" }, { order: "asc" }],
   });
+
+  const tasks = allTasks.filter((t) => !t.parentTaskId);
 
   const members = await prisma.workspaceMember.findMany({
     where: { workspaceId: project.workspaceId },
@@ -96,6 +112,14 @@ export default async function ProjectListPage(props: {
         dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
         dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
         dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
+        childTasks: (t.childTasks || []).map((ct: any) => ({
+          id: ct.id,
+          title: ct.title,
+          code: ct.code,
+          issueKey: ct.issueKey,
+          status: doneColumnNames.includes(ct.column?.name || "") ? "DONE" : ct.column?.name === "In Progress" ? "IN_PROGRESS" : "TODO",
+        })),
+        completedChildTaskCount: (t.childTasks || []).filter((ct: any) => doneColumnNames.includes(ct.column?.name || "")).length,
       }))}
       columns={board?.columns.map((c) => ({ id: c.id, name: c.name })) || []}
       members={members.map((m) => ({ id: m.user.id, name: m.user.name, email: m.user.email, avatarUrl: m.user.avatarUrl }))}

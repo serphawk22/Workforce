@@ -52,12 +52,18 @@ function TaskCard({ task }: { task: any }) {
     LOW: "bg-muted-foreground",
   };
   
+  const hasChildTasks = task.childTasks && task.childTasks.length > 0;
+  const doneStatuses = ["Done", "Released", "Closed"];
+  const completedChildTasks = hasChildTasks ? task.childTasks.filter((ct: any) => doneStatuses.includes(ct.column?.name)).length : 0;
+  const childProgress = hasChildTasks ? Math.round((completedChildTasks / task.childTasks.length) * 100) : 0;
+  
   return (
     <div className="group flex items-center gap-4 rounded-xl px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border">
       <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${priorityColors[task.priority] || "bg-muted-foreground"}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+          {task.code && <span className="text-xs font-mono text-muted-foreground shrink-0">#{task.code}</span>}
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="truncate">{task.column?.board?.project?.name || "Project"}</span>
@@ -73,6 +79,14 @@ function TaskCard({ task }: { task: any }) {
             </a>
           )}
         </div>
+        {hasChildTasks && (
+          <div className="flex items-center gap-2 mt-1">
+            <div className="h-1.5 w-16 rounded-full bg-muted">
+              <div className="h-1.5 rounded-full bg-success transition-all" style={{ width: `${childProgress}%` }} />
+            </div>
+            <span className="text-[10px] text-muted-foreground">{completedChildTasks}/{task.childTasks.length} subtasks</span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <Badge variant={
@@ -97,31 +111,47 @@ export default async function DashboardPage() {
 
   const now = new Date();
   const weekStart = getWeekStart(now);
+  const doneStatuses = ["Done", "Released", "Closed"];
 
   const allMyTasks = await prisma.task.findMany({
     where: { assigneeId: session.user.id },
     include: {
       column: { include: { board: { include: { project: true } } } },
       assignee: true,
+      childTasks: {
+        include: { column: { select: { name: true } } },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 
   const overdueTasks = allMyTasks.filter(
-    (t) => t.dueDate && t.dueDate < now && t.column.name !== "Done"
+    (t) => t.dueDate && t.dueDate < now && !doneStatuses.includes(t.column.name)
   );
 
   const tasksDueToday = allMyTasks.filter(
-    (t) => t.dueDate && isToday(t.dueDate) && t.column.name !== "Done"
+    (t) => t.dueDate && isToday(t.dueDate) && !doneStatuses.includes(t.column.name)
   );
 
   const tasksStartedToday = allMyTasks.filter(
     (t) => t.dateOfDevAcceptOrStart && isToday(t.dateOfDevAcceptOrStart)
   );
 
+  const myChildTasks = await prisma.task.count({
+    where: { parentTask: { assigneeId: session.user.id } },
+  });
+
+  const completedChildTasks = await prisma.task.count({
+    where: { parentTask: { assigneeId: session.user.id }, column: { name: { in: doneStatuses } } },
+  });
+
+  const inProgressChildTasks = await prisma.task.count({
+    where: { parentTask: { assigneeId: session.user.id }, column: { name: { in: ["In Progress", "Review"] } } },
+  });
+
   const completedThisWeek = allMyTasks.filter(
     (t) =>
-      ["Done", "Released", "Closed"].includes(t.column.name) &&
+      doneStatuses.includes(t.column.name) &&
       t.updatedAt >= weekStart
   );
 
@@ -136,23 +166,35 @@ export default async function DashboardPage() {
       (t) =>
         t.dateOfReleaseToProd &&
         t.dateOfReleaseToProd >= now &&
-        !["Done", "Released", "Closed"].includes(t.column.name)
+        !doneStatuses.includes(t.column.name)
     )
     .sort((a, b) => a.dateOfReleaseToProd!.getTime() - b.dateOfReleaseToProd!.getTime())
     .slice(0, 5);
 
   const completedTasks = allMyTasks.filter((t) =>
-    ["Done", "Released", "Closed"].includes(t.column.name)
+    doneStatuses.includes(t.column.name)
   );
 
   const inProgressTasks = allMyTasks.filter((t) =>
     ["In Progress", "Review"].includes(t.column.name)
   );
 
+  let totalUnits = 0;
+  let completedUnits = 0;
+  for (const t of allMyTasks) {
+    if (t.childTasks && t.childTasks.length > 0) {
+      const doneChildren = t.childTasks.filter((ct: any) => doneStatuses.includes(ct.column?.name)).length;
+      totalUnits += t.childTasks.length;
+      completedUnits += doneChildren;
+    } else {
+      totalUnits += 1;
+      if (doneStatuses.includes(t.column.name)) {
+        completedUnits += 1;
+      }
+    }
+  }
+  const completionPct = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
   const totalAssigned = allMyTasks.length;
-  const completionPct = totalAssigned > 0
-    ? Math.round((completedTasks.length / totalAssigned) * 100)
-    : 0;
 
   const projectNames = [
     ...new Set(allMyTasks.map((t) => t.column.board.project.name)),
@@ -174,7 +216,7 @@ export default async function DashboardPage() {
   });
 
   const upcomingTasks = allMyTasks
-    .filter((t) => t.dueDate && t.dueDate >= now && t.column.name !== "Done")
+    .filter((t) => t.dueDate && t.dueDate >= now && !doneStatuses.includes(t.column.name))
     .sort((a, b) => (a.dueDate!.getTime() - b.dueDate!.getTime()))
     .slice(0, 5);
 
@@ -187,13 +229,13 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/daily-work">
-            <Button variant="primary" size="sm">
+            <Button size="sm">
               <ClipboardList className="h-4 w-4" />
               Daily Work
             </Button>
           </Link>
           <Link href="/my-tasks">
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               View all tasks
               <ArrowUpRight className="h-4 w-4 ml-1.5" />
             </Button>
@@ -248,6 +290,18 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Pending</span>
                 <span className="font-medium text-foreground">{totalAssigned - completedTasks.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted-foreground">Total Subtasks</span>
+                <span className="font-medium text-foreground">{myChildTasks}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted-foreground">Subtasks Completed</span>
+                <span className="font-medium text-success">{completedChildTasks}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted-foreground">Subtasks In Progress</span>
+                <span className="font-medium text-primary">{inProgressChildTasks}</span>
               </div>
               <div className="flex items-center justify-between text-sm mb-4">
                 <span className="text-muted-foreground">Overdue</span>
@@ -307,7 +361,7 @@ export default async function DashboardPage() {
               <FolderKanban className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">Your Projects</h2>
             </div>
-            <Badge variant="secondary" size="sm">{projectNames.length}</Badge>
+              <Badge variant="default" size="sm">{projectNames.length}</Badge>
           </div>
           {projectNames.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No projects yet</p>
@@ -335,7 +389,7 @@ export default async function DashboardPage() {
               <Clock className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">Recently Updated</h2>
             </div>
-            <Badge variant="secondary" size="sm">{recentTasks.length}</Badge>
+            <Badge variant="default" size="sm">{recentTasks.length}</Badge>
           </div>
           {recentTasks.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No recent tasks</p>

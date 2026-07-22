@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { submitWorkUpdate, getNextCode } from "@/actions/work-update";
+import { submitWorkUpdate, getNextCode, getWorkUpdateChildTasks } from "@/actions/work-update";
 import { createSubtask, getSubtacks } from "@/actions/subtask";
+import { createDailyWorkChildTask } from "@/actions/daily-work";
 import { Button } from "@/components/ui/button";
-import { X, Clock, GitBranch, Globe, ListChecks, Activity } from "lucide-react";
+import { X, Clock, GitBranch, Globe, ListChecks, Activity, FolderTree, Plus } from "lucide-react";
 
 type Project = { id: string; name: string; key: string; tasks: { id: string; title: string; code: string | null; issueKey: string | null }[] };
 type Subtask = { id: string; title: string; status: string; createdBy: string; createdAt: string; updatedAt: string };
@@ -17,6 +18,10 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
+  const [childTasks, setChildTasks] = useState<{ id: string; title: string; code: string | null }[]>([]);
+  const [selectedChildTaskId, setSelectedChildTaskId] = useState("");
+  const [newChildTaskTitle, setNewChildTaskTitle] = useState("");
+  const [creatingChildTask, setCreatingChildTask] = useState(false);
   const [status, setStatus] = useState("IN_PROGRESS");
   const [progressNotes, setProgressNotes] = useState("");
   const [workSummary, setWorkSummary] = useState("");
@@ -38,13 +43,28 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
     let active = true;
     if (!selectedTaskId) {
       setSubtasks([]);
+      setChildTasks([]);
       return;
     }
     getSubtacks(selectedTaskId).then((result) => {
       if (active) setSubtasks(result);
     });
+    getWorkUpdateChildTasks(selectedTaskId).then((result) => {
+      if (active) setChildTasks(result);
+    });
     return () => { active = false; };
   }, [selectedTaskId]);
+
+  async function handleCreateChildTask() {
+    if (!newChildTaskTitle.trim() || !selectedTaskId) return;
+    setCreatingChildTask(true);
+    const result = await createDailyWorkChildTask(selectedTaskId, newChildTaskTitle.trim());
+    if (result?.id) {
+      setChildTasks((prev) => [...prev, { id: result.id, title: result.title, code: result.code }]);
+      setNewChildTaskTitle("");
+    }
+    setCreatingChildTask(false);
+  }
 
   async function handleCreateSubtask() {
     if (!newSubtaskTitle.trim() || !selectedTaskId) return;
@@ -156,22 +176,53 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
             </div>
 
             {selectedTaskId && (
-              <div className="animate-in fade-in slide-in-from-top-2">
-                <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><ListChecks className="h-4 w-4 text-muted-foreground" /> Subtask <span className="text-muted-foreground font-normal text-xs">(optional)</span></label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <select value={selectedSubtaskId} onChange={(e) => setSelectedSubtaskId(e.target.value)} className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
-                    <option value="">No specific subtask</option>
-                    {subtasks.map((s) => (
-                      <option key={s.id} value={s.id}>{s.title} ({s.status.replace("_", " ")})</option>
-                    ))}
-                  </select>
+              <div className="animate-in fade-in slide-in-from-top-2 space-y-4">
+                {/* Task hierarchy child tasks */}
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><FolderTree className="h-4 w-4 text-muted-foreground" /> Subtask <span className="text-muted-foreground font-normal text-xs">(optional)</span></label>
+                  {childTasks.length > 0 ? (
+                    <select value={selectedChildTaskId} onChange={(e) => setSelectedChildTaskId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                      <option value="">No specific subtask</option>
+                      {childTasks.map((ct) => (
+                        <option key={ct.id} value={ct.id}>{ct.code ? `#${ct.code} ` : ""}{ct.title}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No subtasks available</p>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New subtask title..." className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                  <Button type="button" variant="secondary" size="sm" onClick={handleCreateSubtask}>Add Subtask</Button>
+
+                {/* SubTask model subtasks */}
+                {subtasks.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5"><ListChecks className="h-4 w-4 text-muted-foreground" /> Breakdown <span className="text-muted-foreground font-normal text-xs">(optional)</span></label>
+                    <select value={selectedSubtaskId} onChange={(e) => setSelectedSubtaskId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20">
+                      <option value="">No specific breakdown</option>
+                      {subtasks.map((s) => (
+                        <option key={s.id} value={s.id}>{s.title} ({s.status.replace("_", " ")})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                    <div className="flex gap-2">
+                  <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="New breakdown title..." className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                  <Button type="button" variant="secondary" size="sm" onClick={handleCreateSubtask}>Add</Button>
                 </div>
               </div>
             )}
+
+            {/* Create new child task (appears on Kanban) */}
+            <div className="pt-2 border-t border-border/50">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Create New Subtask <span className="font-normal text-muted-foreground/60">(appears on board)</span></label>
+              <div className="flex gap-2">
+                <input value={newChildTaskTitle} onChange={(e) => setNewChildTaskTitle(e.target.value)} placeholder="Subtask title..." className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                <Button type="button" variant="secondary" size="sm" onClick={handleCreateChildTask} disabled={creatingChildTask || !newChildTaskTitle.trim()}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Create
+                </Button>
+              </div>
+            </div>
           </div>
           
           <hr className="border-border" />
@@ -223,10 +274,10 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
           )}
 
           <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
-            <Button type="submit" variant="default" size="md" disabled={loading} className="w-full sm:w-auto min-w-[140px]">
+            <Button type="submit" variant="primary" size="md" disabled={loading} className="w-full sm:w-auto min-w-[140px]">
               {loading ? "Saving..." : "Save Work Update"}
             </Button>
-            <Button type="button" variant="outline" size="md" onClick={onClose} className="w-full sm:w-auto">
+            <Button type="button" variant="secondary" size="md" onClick={onClose} className="w-full sm:w-auto">
               Cancel
             </Button>
           </div>

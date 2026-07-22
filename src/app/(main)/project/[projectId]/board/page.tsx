@@ -31,6 +31,7 @@ export default async function ProjectBoardPage(props: {
                   labels: { include: { label: true } },
                   comments: { select: { id: true } },
                   subtasks: { select: { id: true, title: true, status: true, code: true }, orderBy: { createdAt: "asc" } },
+                  childTasks: { select: { id: true, title: true, code: true, issueKey: true, priority: true, assigneeId: true, assignee: { select: { id: true, name: true } }, dueDate: true, labels: { include: { label: true } }, columnId: true, order: true, sprintId: true, createdAt: true, dateOfDevAcceptOrStart: true, dateOfDevComplete: true, dateOfQaOrUatStart: true, dateOfQaOrUatComplete: true, dateOfReleaseToProd: true, comments: { select: { id: true } }, subtasks: { select: { id: true, title: true, status: true, code: true }, orderBy: { createdAt: "asc" } } }, orderBy: { order: "asc" } },
                 },
               },
             },
@@ -66,49 +67,89 @@ export default async function ProjectBoardPage(props: {
   const labelFilter = searchParams.label as string | undefined;
   const searchQuery = searchParams.search as string | undefined;
 
-  const columns = board.columns.map((col) => ({
-    id: col.id,
-    name: col.name,
-    tasks: col.tasks
-      .filter((t) => {
-        if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
-        if (priorityFilter && t.priority !== priorityFilter) return false;
-        if (labelFilter && !t.labels.some((l) => l.label.id === labelFilter)) return false;
-        if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        return true;
-      })
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        code: t.code,
-        issueKey: t.issueKey,
-        priority: t.priority,
-        assignee: t.assignee,
-        dueDate: t.dueDate?.toISOString() || null,
-        sprintId: t.sprintId,
-        labels: t.labels.map((l) => ({
-          id: l.label.id,
-          name: l.label.name,
-          color: l.label.color,
-        })),
-        commentCount: t.comments.length,
-        createdAt: t.createdAt.toISOString(),
-        dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,
-        dateOfDevComplete: t.dateOfDevComplete?.toISOString() || null,
-        dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
-        dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
-        dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
-        subtasks: t.subtasks.map((s) => ({
-          id: s.id,
-          title: s.title,
-          code: s.code,
-          status: s.status,
-        })),
-        completedSubtaskCount: t.subtasks.filter((s) => s.status === "DONE").length,
-      })),
-  }));
+  function mapTask(t: {
+    id: string; title: string; code: string | null; issueKey: string | null;
+    priority: string; assigneeId: string | null;
+    assignee: { id: string; name: string } | null;
+    dueDate: Date | null; sprintId: string | null;
+    createdAt: Date;
+    dateOfDevAcceptOrStart: Date | null; dateOfDevComplete: Date | null;
+    dateOfQaOrUatStart: Date | null; dateOfQaOrUatComplete: Date | null;
+    dateOfReleaseToProd: Date | null;
+    labels: Array<{ label: { id: string; name: string; color: string } }>;
+    comments: Array<{ id: string }>;
+    subtasks: Array<{ id: string; title: string; status: string; code: string | null }>;
+  }) {
+    return {
+      id: t.id, title: t.title, code: t.code, issueKey: t.issueKey,
+      priority: t.priority, assignee: t.assignee,
+      dueDate: t.dueDate?.toISOString() || null, sprintId: t.sprintId,
+      labels: t.labels.map((l) => ({ id: l.label.id, name: l.label.name, color: l.label.color })),
+      commentCount: t.comments.length,
+      createdAt: t.createdAt.toISOString(),
+      dateOfDevAcceptOrStart: t.dateOfDevAcceptOrStart?.toISOString() || null,
+      dateOfDevComplete: t.dateOfDevComplete?.toISOString() || null,
+      dateOfQaOrUatStart: t.dateOfQaOrUatStart?.toISOString() || null,
+      dateOfQaOrUatComplete: t.dateOfQaOrUatComplete?.toISOString() || null,
+      dateOfReleaseToProd: t.dateOfReleaseToProd?.toISOString() || null,
+      subtasks: t.subtasks.map((s) => ({ id: s.id, title: s.title, code: s.code, status: s.status })),
+      completedSubtaskCount: t.subtasks.filter((s) => s.status === "DONE").length,
+    };
+  }
 
-  const allTasks = columns.flatMap((c) => c.tasks);
+  function mapChildTask(t: any) {
+    return {
+      ...mapTask(t),
+      parentTaskId: t.parentTaskId,
+    };
+  }
+
+  function isDoneColumn(colId: string) {
+    const c = board.columns.find((x) => x.id === colId);
+    return c && ["Done", "Released", "Closed"].includes(c.name);
+  }
+
+  const columns = board.columns.map((col) => {
+    const childTasksMap = new Map<string, any[]>();
+    for (const t of col.tasks) {
+      if (t.parentTaskId) {
+        const arr = childTasksMap.get(t.parentTaskId) || [];
+        arr.push(t);
+        childTasksMap.set(t.parentTaskId, arr);
+      }
+    }
+
+    return {
+      id: col.id,
+      name: col.name,
+      tasks: col.tasks
+        .filter((t) => {
+          if (t.parentTaskId) return false;
+          if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
+          if (priorityFilter && t.priority !== priorityFilter) return false;
+          if (labelFilter && !t.labels.some((l) => l.label.id === labelFilter)) return false;
+          if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+          return true;
+        })
+        .map((t) => {
+          const children = (childTasksMap.get(t.id) || []).filter((ct) => {
+            if (assigneeFilter && ct.assigneeId !== assigneeFilter) return false;
+            if (priorityFilter && ct.priority !== priorityFilter) return false;
+            if (labelFilter && !ct.labels.some((l: any) => l.label.id === labelFilter)) return false;
+            if (searchQuery && !ct.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+          });
+          return {
+            ...mapTask(t),
+            childTasks: children.map(mapChildTask),
+            childTaskCount: children.length,
+            completedChildTaskCount: children.filter((ct: any) => isDoneColumn(ct.columnId)).length,
+          };
+        }),
+    };
+  });
+
+  const allTasks = columns.flatMap((c) => [...c.tasks, ...c.tasks.flatMap((t: any) => t.childTasks || [])]);
 
   return (
     <div className="flex gap-6">
@@ -128,6 +169,7 @@ export default async function ProjectBoardPage(props: {
           members={members.map((m) => m.user)}
           labels={project.labels}
           sprints={sprints.map((s) => ({ id: s.id, name: s.name, status: s.status }))}
+          parentTasks={board.columns.flatMap((c) => c.tasks.filter((t) => !t.parentTaskId)).map((t) => ({ id: t.id, title: t.title, code: t.code, issueKey: t.issueKey }))}
         />
       </div>
       <SprintSidebar
@@ -146,12 +188,12 @@ export default async function ProjectBoardPage(props: {
   );
 }
 
-function ProjectStats({ columns }: { columns: Array<{ id: string; name: string; tasks: Array<{ assignee: { id: string; name: string } | null }> }> }) {
-  const allTasks = columns.flatMap((c) => c.tasks);
+function ProjectStats({ columns }: { columns: Array<{ id: string; name: string; tasks: Array<{ assignee: { id: string; name: string } | null; childTasks?: Array<{ assignee: { id: string; name: string } | null }> }> }> }) {
+  const allTasks = columns.flatMap((c) => [...c.tasks, ...c.tasks.flatMap((t: any) => t.childTasks || [])]);
   const totalTasks = allTasks.length;
   const doneTasks = columns
     .filter((c) => ["Done", "Released", "Closed"].includes(c.name))
-    .flatMap((c) => c.tasks);
+    .flatMap((c) => [...c.tasks, ...c.tasks.flatMap((t: any) => t.childTasks || [])]);
   const completedCount = doneTasks.length;
   const pendingCount = totalTasks - completedCount;
   const developerIds = new Set(allTasks.map((t) => t.assignee?.id).filter(Boolean));
