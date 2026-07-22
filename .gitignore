@@ -51,5 +51,5 @@ next-env.d.ts
 # logs
 dev-server.log
 
-# old postgresql migrations (switched to sqlite)
-/prisma/migrations/
+# prisma
+!/prisma/migrations/
