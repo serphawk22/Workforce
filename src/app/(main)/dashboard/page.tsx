@@ -193,7 +193,7 @@ export default async function DashboardPage() {
             </Button>
           </Link>
           <Link href="/my-tasks">
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               View all tasks
               <ArrowUpRight className="h-4 w-4 ml-1.5" />
             </Button>
@@ -307,7 +307,7 @@ export default async function DashboardPage() {
               <FolderKanban className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">Your Projects</h2>
             </div>
-            <Badge variant="secondary" size="sm">{projectNames.length}</Badge>
+            <Badge variant="gray" size="sm">{projectNames.length}</Badge>
           </div>
           {projectNames.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No projects yet</p>
@@ -335,7 +335,7 @@ export default async function DashboardPage() {
               <Clock className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">Recently Updated</h2>
             </div>
-            <Badge variant="secondary" size="sm">{recentTasks.length}</Badge>
+            <Badge variant="gray" size="sm">{recentTasks.length}</Badge>
           </div>
           {recentTasks.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No recent tasks</p>

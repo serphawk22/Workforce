@@ -88,7 +88,7 @@ export async function submitDailyWork(formData: FormData) {
       project:      projectId ? { connect: { id: projectId } } : undefined,
       task:         resolvedTaskId ? { connect: { id: resolvedTaskId } } : undefined,
       todayWork:    todayWork.trim(),
-      todayWorkCompleted,
+      todayWorkCompleted: todayWorkCompleted || "",
       yesterdayPlan:     yesterdayPlan || undefined,
       yesterdayCompleted: yesterdayCompleted || undefined,
       tomorrowTask: tomorrowTask.trim(),

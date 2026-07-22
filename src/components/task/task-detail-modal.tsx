@@ -269,7 +269,7 @@ export function TaskDetailModal({
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && !editing && (
-              <Button variant="outline" size="sm" onClick={() => setShowReassignModal(true)}>
+              <Button variant="secondary" size="sm" onClick={() => setShowReassignModal(true)}>
                 Reassign
               </Button>
             )}
@@ -526,13 +526,13 @@ export function TaskDetailModal({
                       <div className="flex items-center gap-2 mt-4 p-3 bg-muted/30 rounded-lg border border-border animate-fade-in">
                         <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)} placeholder="Label name" className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm transition-all focus:border-primary focus:ring-1 focus:ring-primary/20" />
                         <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="h-8 w-8 cursor-pointer rounded-md border border-border bg-background p-0.5" />
-                        <Button variant="default" size="sm" onClick={handleCreateLabel}>Add</Button>
+                        <Button variant="primary" size="sm" onClick={handleCreateLabel}>Add</Button>
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-3 pt-6 border-t border-border mt-6">
-                    <Button variant="default" size="sm" onClick={handleSave} loading={loading}>Save Changes</Button>
-                    <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+                    <Button variant="primary" size="sm" onClick={handleSave} loading={loading}>Save Changes</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
                     <button onClick={() => setShowDeleteConfirm(true)} className="ml-auto flex items-center gap-2 text-sm font-semibold text-danger hover:text-danger/80 transition-colors">
                       <Trash2 className="h-4 w-4" />
                       Delete Task
@@ -585,7 +585,7 @@ export function TaskDetailModal({
               </div>
               <div className="flex gap-3 pt-2">
                 <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} placeholder="What needs to be done?" className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground transition-all hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                <Button variant="default" size="sm" onClick={handleCreateSubtask}>Add Subtask</Button>
+                <Button variant="primary" size="sm" onClick={handleCreateSubtask}>Add Subtask</Button>
               </div>
 
               {workUpdates.length > 0 && (
@@ -618,8 +618,8 @@ export function TaskDetailModal({
                           <div className="mt-3 flex gap-2">
                             <input value={editingSummaryText} onChange={(e) => setEditingSummaryText(e.target.value)}
                               className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:ring-2 focus:ring-primary/20" />
-                            <Button variant="default" size="sm" onClick={async () => { await updateWorkSummary(wu.id, editingSummaryText); setEditingSummaryId(null); }}>Save</Button>
-                            <Button variant="outline" size="sm" onClick={() => setEditingSummaryId(null)}>Cancel</Button>
+                            <Button variant="primary" size="sm" onClick={async () => { await updateWorkSummary(wu.id, editingSummaryText); setEditingSummaryId(null); }}>Save</Button>
+                            <Button variant="secondary" size="sm" onClick={() => setEditingSummaryId(null)}>Cancel</Button>
                           </div>
                         ) : wu.workSummary ? (
                           <div className="mt-3 p-3 bg-muted/40 rounded-lg border border-border/50 flex items-start gap-2 group/summary">

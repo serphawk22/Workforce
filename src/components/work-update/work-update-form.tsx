@@ -223,10 +223,10 @@ export function WorkUpdateForm({ projects: initialProjects, onClose }: { project
           )}
 
           <div className="flex items-center gap-3 pt-4 border-t border-border mt-4">
-            <Button type="submit" variant="default" size="md" disabled={loading} className="w-full sm:w-auto min-w-[140px]">
+            <Button type="submit" variant="primary" size="md" disabled={loading} className="w-full sm:w-auto min-w-[140px]">
               {loading ? "Saving..." : "Save Work Update"}
             </Button>
-            <Button type="button" variant="outline" size="md" onClick={onClose} className="w-full sm:w-auto">
+            <Button type="button" variant="secondary" size="md" onClick={onClose} className="w-full sm:w-auto">
               Cancel
             </Button>
           </div>

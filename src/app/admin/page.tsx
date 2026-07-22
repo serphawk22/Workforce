@@ -149,8 +149,8 @@ export default async function AdminDashboardPage() {
             <h2 className="text-base font-semibold text-foreground">My Work</h2>
           </div>
           <div className="flex gap-2">
-            <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
-            <Link href="/my-projects"><Button variant="outline" size="sm">My Projects <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
+            <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
+            <Link href="/my-projects"><Button variant="secondary" size="sm">My Projects <ArrowUpRight className="h-4 w-4 ml-1" /></Button></Link>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-4">
@@ -287,7 +287,7 @@ export default async function AdminDashboardPage() {
                 ))}
               </div>
             </div>
-            <Link href="/admin/workload"><Button variant="outline" size="sm">View Workload</Button></Link>
+            <Link href="/admin/workload"><Button variant="secondary" size="sm">View Workload</Button></Link>
           </div>
         </Card>
       )}
@@ -327,7 +327,7 @@ export default async function AdminDashboardPage() {
                     <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
-                      <Badge variant="secondary" size="sm">{t.column.name}</Badge>
+                      <Badge variant="gray" size="sm">{t.column.name}</Badge>
                     </div>
                   </div>
                   <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{formatDateTime(t.updatedAt)}</span>
@@ -361,7 +361,7 @@ export default async function AdminDashboardPage() {
                   <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
                   <div className="flex items-center gap-2 mt-1.5">
                     {t.assignee && <span className="text-[11px] font-medium text-muted-foreground">{t.assignee.name}</span>}
-                    <Badge variant="secondary" size="sm">{t.column.name}</Badge>
+                    <Badge variant="gray" size="sm">{t.column.name}</Badge>
                   </div>
                 </div>
                 <span className="text-[11px] text-muted-foreground shrink-0 ml-3 font-medium">{t.dateOfReleaseToProd ? formatDate(t.dateOfReleaseToProd) : ""}</span>
@@ -374,10 +374,10 @@ export default async function AdminDashboardPage() {
       <Card className="p-6">
         <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2"><ExternalLink className="h-5 w-5 text-muted-foreground" /> Quick Links</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/admin/team"><Button variant="default" size="sm">Team Overview</Button></Link>
-          <Link href="/dashboard"><Button variant="outline" size="sm">My Dashboard</Button></Link>
-          <Link href="/my-tasks"><Button variant="outline" size="sm">My Tasks</Button></Link>
-          <Link href="/admin/analytics"><Button variant="outline" size="sm">Analytics</Button></Link>
+          <Link href="/admin/team"><Button variant="primary" size="sm">Team Overview</Button></Link>
+          <Link href="/dashboard"><Button variant="secondary" size="sm">My Dashboard</Button></Link>
+          <Link href="/my-tasks"><Button variant="secondary" size="sm">My Tasks</Button></Link>
+          <Link href="/admin/analytics"><Button variant="secondary" size="sm">Analytics</Button></Link>
         </div>
       </Card>
     </div>

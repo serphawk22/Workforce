@@ -73,6 +73,7 @@ export function TaskCard({ task, onClick }: { task: TaskData; onClick: () => voi
         <button
           {...attributes}
           {...listeners}
+          suppressHydrationWarning
           className="mt-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 absolute left-1 top-3"
           onClick={(e) => e.stopPropagation()}
         >

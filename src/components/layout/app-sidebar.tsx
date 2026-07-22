@@ -22,10 +22,12 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Kanban,
 } from "lucide-react";
 
 const employeeLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/workspace-dashboard", label: "Workspace", icon: Kanban },
   { href: "/daily-work", label: "Daily Work", icon: PenSquare },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/my-tasks", label: "My Tasks", icon: CheckSquare },
