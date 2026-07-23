@@ -46,12 +46,18 @@ export type TaskRow = {
   childTasks: ChildTaskRow[];
   lastUpdated: string;
   isAwaiting: boolean;
+  isStandalone?: boolean;
+  todayWork?: string | null;
+  tomorrowTask?: string | null;
+  blockers?: string | null;
+  status?: string;
+  submittedAt?: string;
 };
 
 export default async function AdminWorkUpdatesPage() {
   const session = await requireAdmin();
 
-  const [tasksWithUpdates, tasksAwaiting, employees] = await Promise.all([
+  const [tasksWithUpdates, tasksAwaiting, standaloneUpdates, employees] = await Promise.all([
     prisma.task.findMany({
       where: {
         OR: [
@@ -96,6 +102,12 @@ export default async function AdminWorkUpdatesPage() {
           orderBy: { createdAt: "asc" },
         },
       },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
+    prisma.workUpdate.findMany({
+      where: { taskId: null, todayWork: { not: null } },
+      include: { user: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
@@ -190,12 +202,32 @@ export default async function AdminWorkUpdatesPage() {
       lastUpdated: t.createdAt.toISOString(),
       isAwaiting: true,
     })),
+    ...standaloneUpdates.map((wu) => ({
+      id: `sheet-${wu.id}`,
+      code: null,
+      title: wu.todayWork || "Daily Work Entry",
+      columnName: "Daily Sheet",
+      projectId: "",
+      projectName: wu.user.name,
+      projectKey: "",
+      assigneeName: wu.user.name,
+      subtasks: [],
+      childTasks: [],
+      lastUpdated: wu.createdAt.toISOString(),
+      isAwaiting: false,
+      isStandalone: true,
+      todayWork: wu.todayWork,
+      tomorrowTask: wu.tomorrowTask,
+      blockers: wu.blockers,
+      status: wu.status,
+      submittedAt: wu.createdAt.toISOString(),
+    })),
   ];
 
   const totalUpdates = tasksWithUpdates.reduce(
     (sum, t) => sum + t.workUpdates.length + t.subtasks.reduce((s, st) => s + st.workUpdates.length, 0),
     0,
-  );
+  ) + standaloneUpdates.length;
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">

@@ -41,6 +41,7 @@ const adminLinks = [
   { href: "/admin/all-projects", label: "All Projects", icon: FolderKanban },
   { href: "/admin/team", label: "Teams", icon: Users },
   { href: "/admin/employee-tracking", label: "Work Updates", icon: Activity },
+  { href: "/admin/daily-work", label: "Daily Work", icon: ClipboardList },
   { href: "/admin/analytics", label: "Analytics", icon: TrendingUp },
 ];
 
