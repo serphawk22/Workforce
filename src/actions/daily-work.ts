@@ -287,6 +287,8 @@ export async function getDailyWorkEntries(filters?: {
     yesterdayCompleted: e.yesterdayCompleted ?? null,
     tomorrowTask: e.tomorrowTask ?? null,
     status: e.status,
+    timeSpent: e.timeSpent,
+    workSummary: e.workSummary ?? null,
     blockers: e.blockers ?? null,
     aiSummary: e.aiSummary ?? null,
     referenceLinks: e.referenceLinks ?? null,

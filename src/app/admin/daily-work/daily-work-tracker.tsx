@@ -25,6 +25,8 @@ type Entry = {
   tomorrowTask: string | null;
   aiSummary: string | null;
   status: string;
+  timeSpent: number;
+  workSummary: string | null;
   blockers: string | null;
   referenceLinks: string | null;
   attachments: string | null;
@@ -233,7 +235,7 @@ export function DailyWorkTracker({ employees, projects }: { employees: Employee[
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600 shrink-0">
                     {entry.employeeName.charAt(0).toUpperCase()}
                   </div>
-                    <div className="min-w-0 flex-1 grid grid-cols-5 gap-4 text-sm text-gray-900">
+                    <div className="min-w-0 flex-1 grid grid-cols-6 gap-4 text-sm text-gray-900">
                     <div>
                       <p className="font-medium truncate">{entry.employeeName}</p>
                       <p className="text-xs text-gray-500">{formatDate(entry.submittedAt)}</p>
@@ -250,6 +252,10 @@ export function DailyWorkTracker({ employees, projects }: { employees: Employee[
                       <p className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${(entry.todayWorkCompleted && completionColors[entry.todayWorkCompleted]) || "bg-gray-100 text-gray-600"}`}>
                         {entry.todayWorkCompleted === "YES" ? "Completed" : entry.todayWorkCompleted === "PARTIALLY" ? "Partial" : entry.todayWorkCompleted === "NO" ? "Not Done" : entry.todayWorkCompleted || "-"}
                       </p>
+                    </div>
+                    <div className="truncate">
+                      <p className="font-medium">{entry.timeSpent > 0 ? `${(entry.timeSpent / 60).toFixed(1)}h` : "-"}</p>
+                      <p className="text-xs text-gray-500">Hours</p>
                     </div>
                     <div className="text-right">
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusColors[entry.status] || "bg-gray-100 text-gray-600"}`}>
@@ -306,6 +312,13 @@ function ExpandedEntry({ entry, yesterday, formatDateTime, onViewSheet }: {
           <p className="text-sm text-gray-900 whitespace-pre-wrap">{entry.tomorrowTask}</p>
         </div>
       </div>
+
+      {entry.timeSpent > 0 ? (
+        <div>
+          <p className="text-xs font-medium text-gray-600 uppercase mb-1">Hours Worked</p>
+          <p className="text-sm text-gray-900">{(entry.timeSpent / 60).toFixed(1)}h</p>
+        </div>
+      ) : null}
 
       {entry.aiSummary ? (
         <div>
